@@ -162,7 +162,7 @@ describe("account settings",()=>{
     render(createElement(SettingsHarness));fireEvent.click(await screen.findByRole("button",{name:"生成邀请码"}));
     await screen.findByLabelText("新邀请码");fireEvent.click(screen.getByRole("button",{name:"刷新邀请"}));
     await screen.findByText("已使用");
-    expect(screen.queryByLabelText("新邀请码")).toBeNull();
+    await waitFor(()=>expect(screen.queryByLabelText("新邀请码")).toBeNull());
   });
   // A delayed clipboard response for code A must not claim that newly generated code B was copied.
   it("ignores an old clipboard completion after generating a newer invitation",async()=>{

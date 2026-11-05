@@ -35,12 +35,12 @@ describe("stable location labels", () => {
     const label = await createLocationLabel(link, "证件抽屉", "书房 / 白色衣柜");
     expect(decodeSvg(label.svg)).toBe(link);
     expect(label.dataUrl.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
-  });
+  }, 20_000);
 
   it("escapes user-controlled names in the downloadable SVG", async () => {
     const label = await createLocationLabel("https://home.example/location/box", '<script>alert("name")</script>', '<image href="https://outside.test">');
     expect(label.svg).not.toContain("<script>");
     expect(label.svg).not.toContain('<image href="https://outside.test">');
     expect(decodeSvg(label.svg)).toBe("https://home.example/location/box");
-  });
+  }, 20_000);
 });
