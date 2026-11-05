@@ -285,6 +285,7 @@ export type Item = {
   container_id: string | null;
   location_path: string[];
   photo_url: string | null;
+  thumbnail_url?: string | null;
   version: number;
   location_status: "confirmed" | "missing";
   last_confirmed_at: string | null;
@@ -295,11 +296,17 @@ export type Item = {
 
 export type ItemPatch = Partial<Pick<Item, "name" | "aliases" | "notes" | "quantity" | "compartment_id">> & { expected_version: number };
 
-export function listItems(q = "", compartmentId = "", signal?: AbortSignal, status: "active" | "archived" = "active"): Promise<{ items: Item[] }> {
+export type ItemListOptions = { page?: number; pageSize?: number; roomId?: string; locationStatus?: "confirmed" | "missing" };
+export type ItemListResponse = { items: Item[]; total?: number; page?: number; page_size?: number; has_more?: boolean };
+export function listItems(q = "", compartmentId = "", signal?: AbortSignal, status: "active" | "archived" = "active", options: ItemListOptions = {}): Promise<ItemListResponse> {
   const params = new URLSearchParams();
   params.set("status", status);
   if (q.trim()) params.set("q", q.trim());
   if (compartmentId) params.set("compartment_id", compartmentId);
+  if (options.page !== undefined) params.set("page", String(options.page));
+  if (options.pageSize !== undefined) params.set("page_size", String(options.pageSize));
+  if (options.roomId) params.set("room_id", options.roomId);
+  if (options.locationStatus) params.set("location_status", options.locationStatus);
   return request(`/items?${params}`, { signal });
 }
 

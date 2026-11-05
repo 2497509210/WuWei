@@ -81,11 +81,28 @@ describe("photo preparation", () => {
     await expect(preparePhoto(photo())).rejects.toThrow(/无法读取|有效/);
   });
 
-  it("rejects files larger than 8 MiB and decoded images larger than 20MP", async () => {
-    await expect(preparePhoto(photo(8 * 1024 * 1024 + 1))).rejects.toThrow(/8 MiB/);
+  it("rejects files larger than 25 MiB and decoded images larger than 20MP", async () => {
+    await expect(preparePhoto(photo(25 * 1024 * 1024 + 1))).rejects.toThrow(/25 MiB/);
     width = 6000; height = 4000;
     await expect(preparePhoto(photo())).rejects.toThrow(/2000 万|20/);
     expect(closed).toBe(1);
+  });
+
+  it("accepts a local photo above the upload limit and only returns the smaller uploadable result", async () => {
+    width=4000;height=3000;
+    const file=photo(12*1024*1024);
+    const result=await preparePhoto(file);
+    expect(result.originalBytes).toBe(file.size);
+    expect(result.file.size).toBe(1000);
+    expect(result.compressed).toBe(true);
+  });
+
+  it("never falls back to an original above the server limit when encoding does not shrink enough", async () => {
+    width=4000;height=3000;
+    encoded=new Blob([new Uint8Array(9*1024*1024)],{type:"image/jpeg"});
+    await expect(preparePhoto(photo(12*1024*1024))).rejects.toThrow(/压缩.*8 MiB/);
+    encoded=new Blob([new Uint8Array(14*1024*1024)],{type:"image/jpeg"});
+    await expect(preparePhoto(photo(12*1024*1024))).rejects.toThrow(/压缩.*8 MiB/);
   });
 
   it("fails explicitly when the browser cannot encode JPEG", async () => {

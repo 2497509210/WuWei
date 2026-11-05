@@ -28,7 +28,8 @@ afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
 const props=()=>({me,onLogout:async()=>{},onArrange:()=>{}});
 async function enter(){await screen.findByRole("button",{name:"查看护照"});fireEvent.click(screen.getByRole("button",{name:"批量整理"}));}
 function select(name:string){fireEvent.click(screen.getByRole("checkbox",{name:`选择${name}`}));}
-async function destination(){await screen.findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});await screen.findByRole("option",{name:"白柜"});fireEvent.change(screen.getByLabelText("容器"),{target:{value:"c"}});fireEvent.click(screen.getByRole("button",{name:"证件层"}));}
+function moreActions(){if(!screen.queryByRole("button",{name:"刷新清单"}))fireEvent.click(screen.getByRole("button",{name:"更多"}));}
+async function destination(){await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});await screen.findByRole("option",{name:"白柜"});fireEvent.change(screen.getByLabelText("容器"),{target:{value:"c"}});fireEvent.click(screen.getByRole("button",{name:"证件层"}));}
 
 describe("bulk selection",()=>{
   // A selection mode must keep details accessible without nesting interactive controls.
@@ -43,7 +44,7 @@ describe("bulk selection",()=>{
   it("rejects selecting more than one hundred displayed records without partial selection",async()=>{
     items=Array.from({length:101},(_,index)=>({...first,id:String(index),name:index===0?"护照":`物品${index}`}));
     render(createElement(InventoryPage,props()));await enter();
-    fireEvent.click(screen.getByRole("button",{name:"全选当前结果"}));
+    fireEvent.click(screen.getByRole("button",{name:"全选当前页"}));
     expect(screen.getByText("当前结果超过 100 条，请缩小筛选范围后再全选")).toBeTruthy();
     expect(screen.getAllByRole("checkbox").filter(input=>(input as HTMLInputElement).checked)).toHaveLength(0);
   });
@@ -66,7 +67,7 @@ describe("bulk selection",()=>{
       return normal(url);
     };
     render(createElement(InventoryPage,props()));await enter();select("护照");
-    items=[{...first,version:9},second];fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
+    items=[{...first,version:9},second];moreActions();fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
     await screen.findByRole("checkbox",{name:"选择护照"});
     fireEvent.click(screen.getByRole("button",{name:"批量归档"}));fireEvent.click(screen.getByRole("button",{name:"确认归档"}));
     await waitFor(()=>expect(submitted).toHaveLength(1));expect(submitted[0].items).toEqual([{id:"one",expected_version:2}]);
@@ -81,7 +82,7 @@ describe("bulk selection",()=>{
   // A refreshed result can remove a record from this scope; it must no longer remain a hidden target.
   it("drops selections that disappear from the refreshed visible results",async()=>{
     render(createElement(InventoryPage,props()));await enter();select("护照");
-    items=[second];fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
+    items=[second];moreActions();fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
     await screen.findByRole("checkbox",{name:"选择相机"});
     await waitFor(()=>expect(screen.queryByRole("checkbox",{name:"选择护照"})).toBeNull());
     expect(screen.getByText("已选 0 条")).toBeTruthy();
@@ -90,7 +91,7 @@ describe("bulk selection",()=>{
   // The export entry must carry exactly the current filter and selected IDs into its explicit scope chooser.
   it("opens export with the current filter and selected item count",async()=>{
     render(createElement(InventoryPage,{...props(),initialCompartment:"cp"}));await enter();select("护照");
-    fireEvent.click(screen.getByRole("button",{name:"导出清单"}));
+    moreActions();fireEvent.click(screen.getByRole("button",{name:"导出清单"}));
     const dialog=await screen.findByRole("dialog",{name:"导出清单"});
     expect(within(dialog).getByText("范围：在用 · 不限关键词 · 当前隔层")).toBeTruthy();
     expect((within(dialog).getByRole("radio",{name:"所选物品（1 件）"}) as HTMLInputElement).disabled).toBe(false);

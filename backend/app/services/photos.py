@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import io
+import os
+from pathlib import Path
+import tempfile
 from typing import BinaryIO
 import warnings
 
@@ -48,3 +51,29 @@ def encode_photo(source: BinaryIO) -> EncodedPhoto:
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise PhotoValidationError(400, "invalid_image", "请上传有效的图片") from exc
     return EncodedPhoto(content=encoded.getvalue(), source_hash=hashlib.sha256(raw).hexdigest())
+
+
+def thumbnail_file(source: Path, cache_dir: Path) -> Path:
+    """Create a private derivative of an already authorized immutable photo file."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    filename = hashlib.sha256(source.name.encode("utf-8")).hexdigest() + ".jpg"
+    target = cache_dir / filename
+    if target.is_file():
+        return target
+    temporary = None
+    try:
+        with Image.open(source) as opened:
+            image = opened.convert("RGB")
+            try:
+                image.thumbnail((320, 320))
+                with tempfile.NamedTemporaryFile(prefix=".thumbnail-", suffix=".tmp", dir=cache_dir, delete=False) as output:
+                    temporary = Path(output.name)
+                    image.save(output, format="JPEG", quality=80)
+                # Readers only ever observe complete JPEGs, including simultaneous cache misses.
+                os.replace(temporary, target)
+            finally:
+                image.close()
+    finally:
+        if temporary:
+            temporary.unlink(missing_ok=True)
+    return target

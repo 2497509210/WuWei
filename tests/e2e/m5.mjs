@@ -62,9 +62,11 @@ try{
   const manifest=(await(await api.get(`${base}/manifest.webmanifest`)).json());
   check("桌面入口manifest路径和图标有效",manifest.display==="standalone"&&new URL(manifest.start_url,`${base}/manifest.webmanifest`).pathname===`${basePath}/find`);
   for(const icon of manifest.icons){assert.equal((await api.get(new URL(icon.src,`${base}/manifest.webmanifest`).href)).status(),200);}
+  await page.getByRole("button",{name:"更多",exact:true}).click();
   await page.getByRole("button",{name:"添加到手机桌面",exact:true}).click();
   await page.getByRole("dialog",{name:"添加到手机桌面",exact:true}).waitFor();
   await page.getByRole("button",{name:"关闭对话框",exact:true}).click();
+  await page.keyboard.press("Escape");
   const locationUrl=`${base}/location/${cabinet.id}?compartment=${compartment.id}`;
   await page.getByRole("button",{name:"查看备用相机",exact:true}).click();
   await page.getByRole("button",{name:"在房间中定位",exact:true}).click();

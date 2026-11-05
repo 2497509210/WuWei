@@ -76,6 +76,7 @@ try{
   const archived=(await(await api.get(`${base}/api/items?status=archived`)).json()).items;
   const histories=await Promise.all(archived.map(async item=>(await(await api.get(`${base}/api/items/${item.id}/events`)).json()).events));
   check("归档原样重试不重复写历史",archived.length===2&&histories.every(events=>events.filter(event=>event.type==="archive").length===1));
+  await page.getByRole("button",{name:"更多",exact:true}).click();
   await page.getByRole("button",{name:"导出清单",exact:true}).click();
   let exporting=page.getByRole("dialog",{name:"导出清单",exact:true});
   await exporting.getByRole("radio",{name:"全部物品（含归档）",exact:true}).check();
@@ -89,6 +90,7 @@ try{
   await exporting.getByRole("button",{name:"关闭对话框",exact:true}).click();
   await page.getByRole("searchbox").fill("=1+2");
   await page.getByRole("button",{name:"查看=1+2",exact:true}).waitFor();
+  await page.getByRole("button",{name:"更多",exact:true}).click();
   await page.getByRole("button",{name:"导出清单",exact:true}).click();
   exporting=page.getByRole("dialog",{name:"导出清单",exact:true});
   await exporting.getByRole("button",{name:"生成导出文件",exact:true}).click();
@@ -101,7 +103,8 @@ try{
   await page.getByRole("searchbox").fill("");
   await page.getByRole("button",{name:"已归档",exact:true}).click();
   await page.getByRole("checkbox",{name:"选择证件袋",exact:true}).waitFor();
-  await page.getByRole("button",{name:"全选当前结果",exact:true}).click();
+  await page.getByRole("button",{name:"全选当前页",exact:true}).click();
+  await page.getByRole("button",{name:"更多",exact:true}).click();
   await page.getByRole("button",{name:"导出清单",exact:true}).click();
   exporting=page.getByRole("dialog",{name:"导出清单",exact:true});
   await exporting.getByRole("radio",{name:"所选物品（2 件）",exact:true}).check();

@@ -43,11 +43,13 @@ try{
   await page.getByRole("searchbox").fill("断网");
   await page.getByText("当前筛选未能加载，以下为上次结果",{exact:true}).waitFor();
   check("新筛选失败时旧结果不可勾选或批量提交",!await page.getByRole("checkbox",{name:"选择护照",exact:true}).isEnabled()&&!await page.getByRole("button",{name:"批量归档",exact:true}).isEnabled());
+  await page.getByRole("button",{name:"更多",exact:true}).click();
   check("未核验筛选禁止导出",!await page.getByRole("button",{name:"导出清单",exact:true}).isEnabled());
   await page.screenshot({path:path.join(shots,"01-failed-filter.png"),fullPage:true});
   await page.unroute("**/api/items?*",failQuery);await page.getByRole("searchbox").fill("");
   await page.getByRole("checkbox",{name:"选择护照",exact:true}).waitFor();
   await page.waitForFunction(()=>!document.querySelector('input[aria-label="选择护照"]')?.disabled);
+  if(await page.getByRole("button",{name:"更多",exact:true}).getAttribute("aria-expanded")==="false")await page.getByRole("button",{name:"更多",exact:true}).click();
   check("当前筛选重新成功后恢复操作",await page.getByRole("button",{name:"导出清单",exact:true}).isEnabled());
   await api.post(`${base}/api/account/logout-all`);
   await page.getByRole("button",{name:"刷新清单",exact:true}).click();

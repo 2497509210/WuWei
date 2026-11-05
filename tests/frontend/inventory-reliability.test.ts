@@ -19,9 +19,11 @@ const props=()=>({me,onLogout:async()=>{},onArrange:()=>{}});
 beforeEach(()=>{handler=url=>normal(url);vi.stubGlobal("fetch",(input:string,init:RequestInit={})=>Promise.resolve(handler(new URL(input,"http://localhost"),init)));});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 async function ready(){await screen.findByRole("button",{name:"查看护照"});fireEvent.click(screen.getByRole("button",{name:"批量整理"}));fireEvent.click(screen.getByRole("checkbox",{name:"选择护照"}));}
+function moreActions(){if(!screen.queryByRole("button",{name:"刷新清单"}))fireEvent.click(screen.getByRole("button",{name:"更多"}));}
 function expectUnavailable(){
+  moreActions();
   expect((screen.getByRole("checkbox",{name:"选择护照"}) as HTMLInputElement).disabled).toBe(true);
-  for(const label of ["全选当前结果","批量移动","批量归档","导出清单"]){
+  for(const label of ["全选当前页","批量移动","批量归档","导出清单"]){
     expect((screen.getByRole("button",{name:label}) as HTMLButtonElement).disabled).toBe(true);
   }
 }
@@ -46,7 +48,9 @@ describe("inventory query trust",()=>{
     let reads=0;
     handler=url=>url.pathname.endsWith("/items")&&++reads>1?json({error:{message:"刷新失败"}},503):normal(url);
     render(createElement(InventoryPage,props()));await ready();
+    if(dialogName === "导出清单") moreActions();
     fireEvent.click(screen.getByRole("button",{name:dialogName}));await screen.findByRole("dialog",{name:dialogName});
+    moreActions();
     fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
     await screen.findByText("刷新失败");
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -88,18 +92,19 @@ describe("inventory query trust",()=>{
     let atLayout:{exportDisabled:boolean;dialogOpen:boolean}|undefined;
     function Route({compartment}:{compartment:string}){
       useLayoutEffect(()=>{
-        if(compartment==="new")atLayout={exportDisabled:(screen.getByRole("button",{name:"导出清单"}) as HTMLButtonElement).disabled,dialogOpen:screen.queryByRole("dialog")!==null};
+        if(compartment==="new")atLayout={exportDisabled:(screen.queryByRole("button",{name:"导出清单"}) as HTMLButtonElement|null)?.disabled ?? true,dialogOpen:screen.queryByRole("dialog")!==null};
       },[compartment]);
       return createElement(InventoryPage,{...props(),initialCompartment:compartment});
     }
     handler=url=>url.searchParams.get("compartment_id")==="new"?new Promise(()=>{}):normal(url);
     const view=render(createElement(Route,{compartment:"old"}));await ready();
-    fireEvent.click(screen.getByRole("button",{name:"导出清单"}));await screen.findByRole("dialog",{name:"导出清单"});
+    moreActions();fireEvent.click(screen.getByRole("button",{name:"导出清单"}));await screen.findByRole("dialog",{name:"导出清单"});
     view.rerender(createElement(Route,{compartment:"new"}));
     expect(atLayout).toEqual({exportDisabled:true,dialogOpen:false});
+    moreActions();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect((screen.getByRole("button",{name:"导出清单"}) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button",{name:"全选当前结果"}) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button",{name:"全选当前页"}) as HTMLButtonElement).disabled).toBe(true);
   });
   // Changing status must not allow active records to be submitted through the archived restore action.
   it("keeps old active rows unselectable when the archived filter fails",async()=>{
@@ -109,6 +114,7 @@ describe("inventory query trust",()=>{
     expect(screen.queryByText("当前筛选未能加载，以下为上次结果")).not.toBeNull();
     expect((screen.getByRole("checkbox",{name:"选择护照"}) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole("button",{name:"批量恢复"}) as HTMLButtonElement).disabled).toBe(true);
+    moreActions();
     expect((screen.getByRole("button",{name:"导出清单"}) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("已选 0 条")).toBeTruthy();
   });
@@ -120,7 +126,7 @@ describe("inventory query trust",()=>{
       if(url.pathname.endsWith("/actions/bulk")){submitted=JSON.parse(String(init.body));return json({items:[original],processed:1,changed:1,replayed:false});}
       return normal(url);
     };
-    render(createElement(InventoryPage,props()));await ready();fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
+    render(createElement(InventoryPage,props()));await ready();moreActions();fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
     await waitFor(()=>expect((screen.getByRole("button",{name:"批量归档"}) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button",{name:"批量归档"}));fireEvent.click(screen.getByRole("button",{name:"确认归档"}));
     await waitFor(()=>expect(submitted).toMatchObject({items:[{id:"one",expected_version:2}]}));

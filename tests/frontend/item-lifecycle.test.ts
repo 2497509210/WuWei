@@ -85,7 +85,7 @@ describe("item archive and history workflows", () => {
     expect(screen.queryByLabelText("物品照片")).toBeNull();
     fireEvent.click(screen.getByRole("button", {name:"恢复物品"}));
     expect((screen.getByRole("button", {name:"确认恢复"}) as HTMLButtonElement).disabled).toBe(true);
-    await screen.findByRole("option", {name:"书房"});
+    await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option", {name:"书房"});
     fireEvent.change(screen.getByLabelText("房间"), {target:{value:"r"}});
     await screen.findByRole("option", {name:"白柜"});
     fireEvent.change(screen.getByLabelText("容器"), {target:{value:"c"}});

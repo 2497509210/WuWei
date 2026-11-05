@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { InventoryPage } from "../../frontend/src/pages/InventoryPage";
 import { LocationPicker } from "../../frontend/src/components/LocationPicker";
 
@@ -47,7 +47,7 @@ describe("inventory workflows", () => {
       return normal(url);
     };
     render(createElement(LocationPicker,{value:"",onChange:()=>{}}));
-    await screen.findByRole("option",{name:"主卧"});
+    await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});
     fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});
     await screen.findByText("房间读取失败");
     fireEvent.click(screen.getByRole("button",{name:"重试"}));
@@ -95,7 +95,7 @@ describe("inventory workflows", () => {
     };
     show();
     fireEvent.click(await screen.findByRole("button", {name:"登记物品"}));
-    await screen.findByRole("option", {name:"主卧"});
+    await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option", {name:"主卧"});
     fireEvent.change(screen.getByLabelText("房间"), {target:{value:"r"}});
     await screen.findByRole("option", {name:"白色衣柜"});
     fireEvent.change(screen.getByLabelText("容器"), {target:{value:"c"}});

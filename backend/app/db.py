@@ -14,6 +14,7 @@ def now_iso() -> str:
 def connect(db_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(db_path, timeout=10)
     connection.row_factory = sqlite3.Row
+    connection.create_function("casefold", 1, lambda value: str(value).casefold() if value is not None else "", deterministic=True)
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA journal_mode = WAL")
     connection.execute("PRAGMA busy_timeout = 5000")

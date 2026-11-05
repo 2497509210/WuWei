@@ -42,7 +42,7 @@ export function ExportDialog({ filter, selectedIds, onClose }: {
     const capturedKey = key;
     setBusy(true); setError(""); releaseFile(); setDownload(null);
     const input: ExportInput = scope === "filtered"
-      ? { format, scope, status: filter.status, ...(filter.q ? { q: filter.q } : {}), ...(filter.compartmentId ? { compartment_id: filter.compartmentId } : {}) }
+      ? { format, scope, status: filter.status, ...(filter.q ? { q: filter.q } : {}), ...(filter.compartmentId ? { compartment_id: filter.compartmentId } : {}), ...(filter.roomId ? { room_id: filter.roomId } : {}), ...(filter.locationStatus ? { location_status: filter.locationStatus } : {}) }
       : scope === "selected" ? { format, scope, ids: [...selectedIds] } : { format, scope };
     try {
       const result = await exportInventory(input, controller.signal);
@@ -66,9 +66,10 @@ export function ExportDialog({ filter, selectedIds, onClose }: {
         <label><input type="radio" name="export-scope" checked={scope === "all"} onChange={() => setScope("all")} />全部物品（含归档）</label>
       </fieldset>
       <p className="export-range" role="status">{scope === "filtered"
-        ? `范围：${filter.status === "archived" ? "已归档" : "在用"}${filter.q ? ` · 搜索“${filter.q}”` : " · 不限关键词"}${filter.compartmentId ? " · 当前隔层" : " · 全部位置"}`
+        ? `范围：${filter.status === "archived" ? "已归档" : filter.locationStatus === "missing" ? "待找回" : "在用"}${filter.q ? ` · 搜索“${filter.q}”` : " · 不限关键词"}${filter.roomId ? ` · ${filter.roomName || "所选房间"}` : ""}${filter.compartmentId ? " · 当前隔层" : filter.roomId ? "" : " · 全部位置"}`
         : scope === "selected" ? `范围：已选中的 ${selectedIds.length} 件物品` : "范围：本家庭全部在用和已归档物品"}</p>
       {!selectedValid && <p className="inventory-muted">所选物品导出需要先选择 1–100 件物品。</p>}
+      {scope === "filtered" && <p className="inventory-muted">导出当前筛选的全部匹配记录，不仅是当前页。</p>}
       <label>文件格式<select aria-label="文件格式" value={format} disabled={busy} onChange={event => setFormat(event.target.value as ExportFormat)}>
         <option value="csv">CSV（表格软件）</option><option value="json">JSON（保留字段结构）</option>
       </select></label>

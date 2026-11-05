@@ -17,8 +17,8 @@ from ..services.history import (
     find_item as _find_item, latest_event_id, location_path as _location_path,
     record_change,
 )
-from ..services.photos import PhotoValidationError, encode_photo
-from ..services.item_query import iter_items
+from ..services.photos import PhotoValidationError, encode_photo, thumbnail_file
+from ..services.item_query import count_items, iter_items, room_belongs_to_household
 from ..session import require_session, require_user
 
 router = APIRouter(prefix="/api")
@@ -34,6 +34,7 @@ def _serialize(row, request: Request):
         "notes": row["notes"] or "", "quantity": row["quantity"],
         "compartment_id": row["compartment_id"], "room_id": row["room_id"], "container_id": row["container_id"],
         "photo_url": f"{request.app.state.settings.base_path}/api/items/{row['id']}/photo?v={row['version']}" if row["photo_path"] else None,
+        "thumbnail_url": f"{request.app.state.settings.base_path}/api/items/{row['id']}/photo?variant=thumbnail&v={row['version']}" if row["photo_path"] else None,
         "location_path": _location_path(row), "version": row["version"],
         "location_status": row["location_status"], "last_confirmed_at": row["last_confirmed_at"],
         "updated_at": row["updated_at"],
@@ -55,12 +56,30 @@ def _check_active(row):
 
 @router.get("/items")
 def list_items(request: Request, q: str = "", compartment_id: str | None = None,
-               status: Literal["active", "archived"] = "active", user: dict = Depends(require_user)):
+               status: Literal["active", "archived"] = "active", room_id: str | None = None,
+               location_status: Literal["confirmed", "missing"] | None = None,
+               page: Annotated[int | None, Query(ge=1)] = None,
+               page_size: Annotated[int | None, Query(ge=1, le=100)] = None):
     connection = connect(request.app.state.db_path)
     try:
+        connection.execute("BEGIN")
+        user = require_session(connection, request)
+        if room_id and not room_belongs_to_household(connection, room_id, user["household_id"]):
+            return _error(404, "room_not_found", "房间不存在")
         if compartment_id and not _find_compartment(connection, compartment_id, user["household_id"]):
             return _error(404, "compartment_not_found", "隔层不存在")
-        rows = iter_items(connection, user["household_id"], status=status, q=q, compartment_id=compartment_id)
+        filters = {"status": status, "q": q, "compartment_id": compartment_id,
+                   "room_id": room_id, "location_status": location_status}
+        paginated = page is not None or page_size is not None
+        if paginated:
+            page, page_size = page or 1, page_size or 40
+            total = count_items(connection, user["household_id"], **filters)
+            offset = (page - 1) * page_size
+            # Avoid passing arbitrarily large user offsets into SQLite's signed 64-bit binding.
+            rows = iter_items(connection, user["household_id"], **filters, limit=page_size, offset=offset) if offset < total else []
+            return {"items": [_serialize(row, request) for row in rows], "total": total,
+                    "page": page, "page_size": page_size, "has_more": offset + page_size < total}
+        rows = iter_items(connection, user["household_id"], **filters)
         return {"items": [_serialize(row, request) for row in rows]}
     finally:
         connection.close()
@@ -415,13 +434,20 @@ def _media_path(request: Request, relative_path: str | None) -> Path | None:
 
 
 @router.get("/items/{item_id}/photo")
-def get_photo(item_id: str, request: Request, user: dict = Depends(require_user)):
+def get_photo(item_id: str, request: Request, variant: Literal["original", "thumbnail"] = "original"):
     connection = connect(request.app.state.db_path)
     try:
+        connection.execute("BEGIN")
+        user = require_session(connection, request)
         row = _find_item(connection, item_id, user["household_id"])
         path = _media_path(request, row["photo_path"]) if row else None
         if not path or not path.is_file():
             return _error(404, "photo_not_found", "照片不存在")
+        if variant == "thumbnail":
+            try:
+                path = thumbnail_file(path, request.app.state.settings.data_dir / "cache")
+            except FileNotFoundError:
+                return _error(404, "photo_not_found", "照片不存在")
         return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
     finally:
         connection.close()

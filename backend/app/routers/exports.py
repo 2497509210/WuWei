@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, Response
 from ..db import connect, now_iso
 from ..export_schemas import InventoryExportIn
 from ..services.history import find_compartment, location_path
-from ..services.item_query import iter_items
+from ..services.item_query import iter_items, room_belongs_to_household
 from ..session import require_session
 
 router = APIRouter(prefix="/api")
@@ -72,6 +72,8 @@ def export_inventory(payload: InventoryExportIn, request: Request):
     try:
         connection.execute("BEGIN")
         user = require_session(connection, request)
+        if payload.scope == "filtered" and payload.room_id and not room_belongs_to_household(connection, payload.room_id, user["household_id"]):
+            return _error(404, "room_not_found", "房间不存在")
         if payload.scope == "filtered" and payload.compartment_id and not find_compartment(connection, payload.compartment_id, user["household_id"]):
             return _error(404, "compartment_not_found", "隔层不存在")
         rows = iter_items(
@@ -79,6 +81,8 @@ def export_inventory(payload: InventoryExportIn, request: Request):
             status=(payload.status or "active") if payload.scope == "filtered" else None,
             q=(payload.q or "") if payload.scope == "filtered" else "",
             compartment_id=payload.compartment_id if payload.scope == "filtered" else None,
+            room_id=payload.room_id if payload.scope == "filtered" else None,
+            location_status=payload.location_status if payload.scope == "filtered" else None,
             ids=payload.ids if payload.scope == "selected" else None,
         )
         items = []

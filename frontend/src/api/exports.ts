@@ -1,11 +1,11 @@
 import { ApiError } from "./client";
 import { captureSession, notifyUnauthorized } from "./sessionEvents";
 
-export type ExportFilter = { status: "active" | "archived"; q: string; compartmentId: string };
+export type ExportFilter = { status: "active" | "archived"; q: string; compartmentId: string; roomId?: string; roomName?: string; locationStatus?: "confirmed" | "missing" };
 export type ExportFormat = "csv" | "json";
 export type ExportScope = "filtered" | "selected" | "all";
 export type ExportInput = { format: ExportFormat } & (
-  { scope: "filtered"; status: "active" | "archived"; q?: string; compartment_id?: string }
+  { scope: "filtered"; status: "active" | "archived"; q?: string; compartment_id?: string; room_id?: string; location_status?: "confirmed" | "missing" }
   | { scope: "selected"; ids: string[] }
   | { scope: "all" }
 );

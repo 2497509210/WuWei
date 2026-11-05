@@ -61,6 +61,16 @@ jobs:
       - name: Build production assets
         working-directory: frontend
         run: npm run build
+      - name: Install Chromium for browser regression
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Verify mobile filtering and pagination in Chromium
+        if: runner.os == 'Linux'
+        env:
+          WUWEI_TEST_PYTHON: python
+          WUWEI_E2E_BASE_PATH: /wuwei
+        run: node tests/e2e/usability.mjs
       - name: Check shell syntax
         shell: bash
         run: bash -n scripts/remote-install.sh scripts/preflight.sh scripts/smoke.sh scripts/wuwei-admin

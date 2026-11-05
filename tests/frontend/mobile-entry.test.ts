@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement, useState } from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InventoryPage } from "../../frontend/src/pages/InventoryPage";
 import { LocationPicker } from "../../frontend/src/components/LocationPicker";
@@ -56,7 +56,7 @@ function photoFile(name="camera.png",bytes=1200,content=1):File {
   return new File([data],name,{type:"image/png",lastModified:1});
 }
 async function chooseLocation(){
-  await screen.findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});
+  await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});
   await screen.findByRole("option",{name:"白柜"});fireEvent.change(screen.getByLabelText("容器"),{target:{value:"c"}});
   fireEvent.click(screen.getByRole("button",{name:"证件层"}));
 }
@@ -102,7 +102,7 @@ describe("verified location defaults",()=>{
     fireEvent.change(screen.getByLabelText("物品名称，每行一件或一组"),{target:{value:"私人物品"}});
     view.rerender(createElement(InventoryPage,{...props(),me:{...me,user:{...me.user,id:"other"},household:{id:"other-home",name:"其他家庭"}}}));
     expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(screen.getByRole("button",{name:"登记物品"}));await screen.findByRole("option",{name:"主卧"});
+    fireEvent.click(screen.getByRole("button",{name:"登记物品"}));await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});
     expect((screen.getByLabelText("房间") as HTMLSelectElement).value).toBe("");
     expect((screen.getByLabelText("物品名称，每行一件或一组") as HTMLTextAreaElement).value).toBe("");
   });
@@ -123,7 +123,7 @@ describe("verified location defaults",()=>{
     const view=render(createElement(InventoryPage,props()));await registerOnce();
     handler=url=>url.pathname.endsWith("/locations/compartments/deleted")?json({error:{code:"compartment_not_found",message:"链接位置已删除"}},404):normal(url);
     view.rerender(createElement(InventoryPage,{...props(),initialCompartment:"deleted",initialAction:"register"}));
-    await screen.findByText("链接位置已删除");
+    await within(screen.getByRole("dialog",{name:"一起记在这个位置"})).findByText("链接位置已删除");
     expect((screen.getByLabelText("房间") as HTMLSelectElement).value).toBe("");
     expect(screen.queryByRole("button",{name:"证件层"})).toBeNull();
   });
@@ -294,7 +294,7 @@ describe("camera registration",()=>{
   // Missing location must guide the user to the position input, rather than leave them at Save.
   it("focuses location selection when saving without a shelf",async()=>{
     render(createElement(InventoryPage,props()));fireEvent.click(screen.getByRole("button",{name:"拍照登记"}));
-    await screen.findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("物品名称"),{target:{value:"相机"}});
+    await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});fireEvent.change(screen.getByLabelText("物品名称"),{target:{value:"相机"}});
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));
     expect(screen.getByText("请选择物品所在的隔层")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByLabelText("房间"));

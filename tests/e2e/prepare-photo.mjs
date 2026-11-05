@@ -45,6 +45,10 @@ try {
     const largeFile = new File([large], "synthetic-12mp.jpg", { type: "image/jpeg" });
     const started = performance.now(), prepared = await preparePhoto(largeFile);
     output.large = { originalBytes: largeFile.size, compressed: prepared.compressed, elapsedMs: performance.now() - started, ...await imageInfo(prepared.file) };
+    const oversizedBlob = await blob(largeCanvas, "image/jpeg", .96);
+    const oversizedFile = new File([oversizedBlob], "large-local-12mp.jpg", { type: "image/jpeg" });
+    const oversizedPrepared = await preparePhoto(oversizedFile);
+    output.largeLocalInput = { originalBytes: oversizedFile.size, compressed: oversizedPrepared.compressed, ...await imageInfo(oversizedPrepared.file) };
     largeCanvas.width = 0; largeCanvas.height = 0;
 
     const smallCanvas = canvas(80, 60);
@@ -110,6 +114,8 @@ try {
   assert.ok(results.large.originalBytes > 6 * 1024 * 1024 && results.large.originalBytes <= 8 * 1024 * 1024);
   assert.deepEqual([results.large.width, results.large.height], [1600, 1200]);
   assert.ok(results.large.compressed && results.large.size < results.large.originalBytes / 4);
+  assert.ok(results.largeLocalInput.originalBytes > 8 * 1024 * 1024 && results.largeLocalInput.originalBytes < 25 * 1024 * 1024);
+  assert.ok(results.largeLocalInput.compressed && results.largeLocalInput.size < 8 * 1024 * 1024);
   assert.ok(results.small.sameFile && !results.small.compressed);
   assert.ok(results.transparent.compressed && results.transparent.corner.slice(0, 3).every(value => value >= 250));
   assert.deepEqual([results.orientation6.width, results.orientation6.height], [800, 1600]);

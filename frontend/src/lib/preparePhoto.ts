@@ -1,6 +1,7 @@
 export type PreparedPhoto = { file: File; originalBytes: number; compressed: boolean };
 
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_INPUT_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const KEEP_BYTES = 400 * 1024;
 const MAX_PIXELS = 20_000_000;
 const MAX_EDGE = 1600;
@@ -17,7 +18,7 @@ function cancelled(): DOMException { return new DOMException("照片处理已取
 
 export function preparePhoto(file: File, signal?: AbortSignal): Promise<PreparedPhoto> {
   if (signal?.aborted) return Promise.reject(cancelled());
-  if (file.size > MAX_BYTES) return Promise.reject(new Error("照片不能超过 8 MiB"));
+  if (file.size > MAX_INPUT_BYTES) return Promise.reject(new Error("原照片不能超过 25 MiB，请选择较小的照片"));
   if (!file.size) return Promise.reject(new Error("请选择有效的 JPEG、PNG 或 WebP 照片"));
 
   return new Promise((resolve, reject) => {
@@ -118,6 +119,7 @@ export function preparePhoto(file: File, signal?: AbortSignal): Promise<Prepared
         }, "image/jpeg", .82);
       });
       active();
+      if (Math.min(blob.size, file.size) > MAX_UPLOAD_BYTES) throw new Error("照片压缩后仍超过 8 MiB，请选择较小的照片");
       if (blob.size >= file.size) return { file, originalBytes: file.size, compressed: false };
       const name = (file.name.replace(/\.[^.]*$/, "") || "photo") + ".jpg";
       return { file: new File([blob], name, { type: "image/jpeg", lastModified: file.lastModified }), originalBytes: file.size, compressed: true };
