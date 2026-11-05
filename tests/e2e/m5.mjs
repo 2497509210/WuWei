@@ -1,0 +1,119 @@
+import { pythonExecutable, chromeLaunchOptions } from "./env.mjs";
+import { chromium } from "../../frontend/node_modules/playwright/index.mjs";
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import net from "node:net";
+import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
+import { createRequire } from "node:module";
+const require = createRequire(new URL("../../frontend/package.json", import.meta.url));
+const { Resvg } = require("@resvg/resvg-js"),{PNG}=require("pngjs"),jsQR=require("jsqr");
+
+const testRoot=fileURLToPath(new URL("../",import.meta.url)),project=path.resolve(testRoot,"..");
+const runDir=await mkdtemp(path.join(testRoot,".e2e-m5-"));
+const shots=path.join(testRoot,"e2e/shots/m5");await mkdir(shots,{recursive:true});
+const listener=net.createServer();await new Promise(resolve=>listener.listen(0,"127.0.0.1",resolve));
+const port=listener.address().port;await new Promise(resolve=>listener.close(resolve));
+const origin=`http://127.0.0.1:${port}`,basePath=process.env.WUWEI_E2E_BASE_PATH||"",base=origin+basePath;
+const backend=spawn(pythonExecutable(project),["-B","-m","uvicorn","app.main:app","--app-dir",path.join(project,"backend"),"--host","127.0.0.1","--port",String(port)],{
+  cwd:testRoot,windowsHide:true,stdio:["ignore","pipe","pipe"],
+  env:{...process.env,WUWEI_DATA_DIR:runDir,WUWEI_STATIC_DIR:process.env.WUWEI_E2E_STATIC_DIR||path.join(project,"frontend/dist"),WUWEI_BASE_PATH:basePath,WUWEI_ALLOWED_ORIGINS:origin,WUWEI_SECURE_COOKIES:"0"}
+});
+let log="";backend.stderr.on("data",data=>{log+=data;});
+let browser,page;const errors=[],checks=[];
+function check(name,value=true){assert.ok(value,name);checks.push(name);console.log(`PASS ${name}`);}
+try{
+  let ready=false;for(let i=0;i<80;i++){try{if((await fetch(`${base}/api/health`)).ok){ready=true;break;}}catch{}await delay(100);}assert.ok(ready,log);
+  browser=await chromium.launch(chromeLaunchOptions());
+  const context=await browser.newContext({viewport:{width:390,height:844}}),api=context.request;
+  const token=(await readFile(path.join(runDir,"setup-token"),"utf8")).trim();
+  assert.equal((await api.post(`${base}/api/setup`,{data:{token,household_name:"手机登记示例",username:"owner",password:"mobile-fixture-2026"}})).status(),201);
+  const result=await api.post(`${base}/api/rooms`,{data:{name:"书房",width_cm:460,depth_cm:360,height_cm:260}}),room=(await result.json()).room;
+  const created=await api.post(`${base}/api/containers`,{data:{room_id:room.id,preset:"drawer_unit",name:"书桌抽屉",x_cm:150,z_cm:60,width_cm:100,depth_cm:50,height_cm:80,config:{layers:2,cols:1}}});
+  const cabinet=(await created.json()).container,compartment=cabinet.compartments[0];
+  page=await context.newPage();page.on("pageerror",error=>errors.push(error.message));
+  await page.goto(`${base}/find?compartment=${compartment.id}&capture=1`);
+  const quick=page.getByRole("dialog",{name:"拍照登记",exact:true});await quick.waitFor({timeout:3000});
+  await page.waitForURL(url=>!url.searchParams.has("capture"));
+  const selected=quick.getByRole("button",{name:compartment.name,exact:true});await selected.waitFor();
+  check("手机快捷链接自动打开拍照登记并选中目标隔层",await selected.getAttribute("aria-pressed")==="true");
+  const photo=await readFile(path.join(project,"frontend/public/app-icons/icon-192.png"));
+  await quick.getByLabel("拍摄或选择照片",{exact:true}).setInputFiles({name:"camera.png",mimeType:"image/png",buffer:photo});
+  await quick.getByLabel("物品名称",{exact:true}).fill("备用相机");
+  await page.screenshot({path:path.join(shots,"01-quick-register.png"),fullPage:true});
+  const failOnce=route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:{message:"模拟断网，请重试"}})});
+  await page.route("**/api/items/quick",failOnce);
+  await quick.getByRole("button",{name:"保存物品",exact:true}).click();
+  await quick.getByText("模拟断网，请重试",{exact:true}).waitFor();
+  check("失败保留照片与名称",await quick.getByLabel("物品名称",{exact:true}).inputValue()==="备用相机"&&await quick.getByRole("img",{name:"待登记照片预览",exact:true}).isVisible());
+  await page.unroute("**/api/items/quick",failOnce);
+  await quick.getByRole("button",{name:"保存物品",exact:true}).click();await quick.waitFor({state:"hidden"});
+  const saved=(await(await api.get(`${base}/api/items`)).json()).items;
+  check("照片和物品一次保存，重试没有重复记录",saved.length===1&&Boolean(saved[0].photo_url)&&saved[0].compartment_id===compartment.id);
+  await page.reload();await page.getByRole("button",{name:"查看备用相机",exact:true}).waitFor();
+  check("刷新不重复弹出快捷登记",await page.getByRole("dialog").count()===0);
+  await page.getByRole("button",{name:"查看全部",exact:true}).click();
+  await page.getByRole("button",{name:"拍照登记",exact:true}).click();
+  await quick.getByRole("button",{name:compartment.name,exact:true}).waitFor();
+  check("新登记带出本账号最近成功位置",await quick.getByRole("button",{name:compartment.name,exact:true}).getAttribute("aria-pressed")==="true");
+  await quick.getByRole("button",{name:"关闭对话框",exact:true}).click();
+  const manifest=(await(await api.get(`${base}/manifest.webmanifest`)).json());
+  check("桌面入口manifest路径和图标有效",manifest.display==="standalone"&&new URL(manifest.start_url,`${base}/manifest.webmanifest`).pathname===`${basePath}/find`);
+  for(const icon of manifest.icons){assert.equal((await api.get(new URL(icon.src,`${base}/manifest.webmanifest`).href)).status(),200);}
+  await page.getByRole("button",{name:"添加到手机桌面",exact:true}).click();
+  await page.getByRole("dialog",{name:"添加到手机桌面",exact:true}).waitFor();
+  await page.getByRole("button",{name:"关闭对话框",exact:true}).click();
+  const locationUrl=`${base}/location/${cabinet.id}?compartment=${compartment.id}`;
+  await page.getByRole("button",{name:"查看备用相机",exact:true}).click();
+  await page.getByRole("button",{name:"在房间中定位",exact:true}).click();
+  const shelf=page.getByRole("dialog",{name:cabinet.name,exact:true});await shelf.waitFor();
+  await shelf.getByRole("button",{name:"位置标签",exact:true}).click();
+  const label=page.getByRole("dialog",{name:"位置标签",exact:true});await label.waitFor();
+  const image=label.getByRole("img",{name:"位置二维码",exact:true});await image.waitFor();
+  const imageSource=await image.getAttribute("src"),svg=decodeURIComponent(imageSource.slice(imageSource.indexOf(",")+1));
+  const raster=PNG.sync.read(new Resvg(svg).render().asPng());
+  check("页面生成的标签二维码实际解码为目标位置",jsQR(new Uint8ClampedArray(raster.data),raster.width,raster.height)?.data===locationUrl);
+  await page.screenshot({path:path.join(shots,"03-label.png"),fullPage:true});
+  const movedRoom=(await(await api.post(`${base}/api/rooms`,{data:{name:"客厅",width_cm:460,depth_cm:360,height_cm:260}})).json()).room;
+  assert.equal((await api.patch(`${base}/api/containers/${cabinet.id}`,{data:{expected_version:cabinet.version,room_id:movedRoom.id}})).status(),200);
+  await page.goto(locationUrl);
+  await page.getByRole("button",{name:compartment.name,exact:true}).waitFor();
+  check("位置深链接保留具体隔层",await page.getByRole("button",{name:compartment.name,exact:true}).getAttribute("aria-pressed")==="true");
+  check("整柜换房间后旧标签解析到新房间",(await page.locator(".location-breadcrumb").innerText()).includes("客厅"));
+  await page.getByRole("button",{name:"拍照登记到此隔层",exact:true}).click();
+  await quick.getByRole("button",{name:compartment.name,exact:true}).waitFor();
+  check("位置页一键拍照登记保持目标隔层",await quick.getByRole("button",{name:compartment.name,exact:true}).getAttribute("aria-pressed")==="true");
+  await quick.getByRole("button",{name:"关闭对话框",exact:true}).click();
+  await page.goto(locationUrl);
+  // The signed-out scan must preserve its URL through login.
+  const guest=await browser.newContext({viewport:{width:390,height:844}}),guestPage=await guest.newPage();
+  guestPage.on("pageerror",error=>errors.push(error.message));
+  await guestPage.goto(locationUrl);
+  await guestPage.getByLabel("用户名",{exact:true}).fill("owner");
+  await guestPage.getByLabel("密码",{exact:true}).fill("mobile-fixture-2026");
+  await guestPage.getByRole("button",{name:"登录",exact:true}).click();
+  await guestPage.getByRole("button",{name:compartment.name,exact:true}).waitFor();
+  check("扫码未登录时完成登录后仍定位原隔层",guestPage.url()===locationUrl);
+  const invitation=(await(await api.post(`${base}/api/household/invites`)).json()).code;
+  const joining=await browser.newContext(),joinPage=await joining.newPage();
+  joinPage.on("pageerror",error=>errors.push(error.message));
+  await joinPage.goto(locationUrl);
+  await joinPage.getByRole("button",{name:"使用邀请码加入家庭",exact:true}).click();
+  await joinPage.getByLabel("邀请码",{exact:true}).fill(invitation);
+  await joinPage.getByLabel("用户名",{exact:true}).fill("mobile-member");
+  await joinPage.getByLabel("昵称",{exact:true}).fill("家人");
+  await joinPage.getByLabel("密码",{exact:true}).fill("member-fixture-2026");
+  await joinPage.getByLabel("确认密码",{exact:true}).fill("member-fixture-2026");
+  await joinPage.getByRole("button",{name:"加入家庭",exact:true}).click();
+  await joinPage.getByRole("button",{name:compartment.name,exact:true}).waitFor({timeout:5000}).catch(async error=>{
+    console.error("Join destination:",joinPage.url(),await joinPage.locator("body").innerText());throw error;
+  });
+  check("扫码后加入家庭仍回到原目标位置",joinPage.url()===locationUrl);
+  check("手机位置页无横向溢出",await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+  await page.screenshot({path:path.join(shots,"02-location.png"),fullPage:true});
+  check("没有未处理浏览器错误",errors.length===0);
+  await writeFile(path.join(shots,"results.json"),JSON.stringify({checks,errors,runDir},null,2));
+}catch(error){console.error(error);await page?.screenshot({path:path.join(shots,"failure.png"),fullPage:true}).catch(()=>{});process.exitCode=1;}
+finally{await browser?.close();backend.kill();}

@@ -1,0 +1,6 @@
+.install-guide { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:14px 0 0; }
+.inventory-page .install-guide button { font-size:12px; padding:8px 12px; color:var(--ink-soft); }
+.install-guide [role=status] { font-size:12px; color:var(--ink-soft); }
+.install-steps { padding-left:22px; line-height:1.7; }
+.install-steps li { margin:18px 0; }
+.install-steps p { margin:6px 0; font-size:14px; }

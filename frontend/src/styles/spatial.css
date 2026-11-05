@@ -1,0 +1,203 @@
+.compartment-map,
+.room-plan {
+  min-width: 0;
+  width: 100%;
+}
+
+.compartment-map-heading,
+.room-plan-heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.room-plan-heading strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.compartment-map-columns {
+  display: grid;
+  gap: 6px;
+  margin: 0 8px 6px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.compartment-map-body {
+  display: grid;
+  grid-template-columns: repeat(var(--compartment-columns, 1), minmax(0, 1fr));
+  gap: 6px;
+  padding: 7px;
+  border-radius: 8px;
+  background: var(--bg-deep);
+}
+
+.compartment-map-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px 6px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.compartment-map-cell small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.compartment-map-cell[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.compartment-map-cell[aria-pressed="true"] small {
+  color: var(--accent-deep);
+}
+
+.room-plan-frame {
+  padding: 7px;
+  border-radius: 8px;
+  background: var(--bg-deep);
+}
+
+.room-plan-floor {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--paper);
+  background-image: linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 10% 10%;
+}
+
+.room-plan-container {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+  border: 2px solid var(--ink-soft);
+  border-radius: 3px;
+  background: var(--sage);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.room-plan-container[data-preset="wardrobe"],
+.room-plan-container[data-preset="storage_box"],
+.room-plan-container[data-preset="custom_box"] {
+  background: var(--bg-deep);
+}
+
+.room-plan-container[aria-pressed="true"] {
+  z-index: 1;
+  border-color: var(--accent-deep);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.room-plan-container-name {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.room-plan-front {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.room-plan-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+
+.room-plan-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.room-plan-list small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.room-plan-list button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.spatial-empty {
+  padding: 16px 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.compartment-name-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 18px;
+}
+
+.compartment-name-editor p,
+.compartment-name-editor .inventory-actions {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .compartment-map-cell {
+    min-height: 68px;
+  }
+
+  .room-plan-front {
+    display: none;
+  }
+}

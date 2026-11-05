@@ -1,0 +1,22 @@
+.location-page { min-height: 100dvh; background: var(--paper, #f6f3ed); color: var(--ink); }
+.location-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px clamp(20px, 5vw, 64px); border-bottom: 1px solid var(--line); }
+.location-header button,
+.location-card button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; background: white; color: var(--ink); cursor: pointer; font: inherit; }
+.location-main { max-width: 760px; margin: 0 auto; padding: 36px 20px 60px; }
+.location-card { padding: clamp(20px, 5vw, 36px); background: white; border: 1px solid var(--line); border-radius: 18px; }
+.location-card h1 { margin: 8px 0 12px; overflow-wrap: anywhere; font-size: clamp(25px, 5vw, 36px); }
+.location-breadcrumb { overflow-wrap: anywhere; line-height: 1.7; }
+.location-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.location-actions button:disabled { opacity: .45; cursor: default; }
+.location-card .inventory-primary { background: var(--accent, #245b46); color: white; border-color: transparent; }
+.location-label { min-width: 0; }
+.location-label select,
+.location-label input { width: 100%; min-width: 0; }
+.location-label-preview { display: block; width: min(100%, 320px); height: auto; align-self: center; margin: 0 auto; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.location-download { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: 10px 16px; border-radius: 10px; background: var(--accent, #245b46); color: white; text-decoration: none; }
+@media (max-width: 480px) {
+  .location-header { padding: 16px; }
+  .location-main { padding: 20px 12px 40px; }
+  .location-actions { flex-direction: column; }
+  .location-actions button { width: 100%; }
+}

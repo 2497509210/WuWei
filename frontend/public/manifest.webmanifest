@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "物位 · 家庭找物",
+  "short_name": "物位",
+  "description": "记录物品的位置，拍照登记，扫码找到所在隔层。",
+  "lang": "zh-CN",
+  "start_url": "./find",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffdf9",
+  "theme_color": "#efe8dc",
+  "icons": [
+    { "src": "./app-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./app-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "拍照登记", "url": "./find?capture=1" },
+    { "name": "登记物品", "url": "./find?register=1" }
+  ]
+}

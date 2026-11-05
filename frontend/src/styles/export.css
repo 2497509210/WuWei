@@ -1,0 +1,11 @@
+.export-dialog { min-width: 0; }
+.export-dialog fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.export-scope { display: grid; gap: 10px; }
+.export-scope legend { margin-bottom: 10px; font-weight: 500; }
+.export-dialog .export-scope label { display: flex; flex-direction: row; align-items: center; gap: 10px; min-height: 42px; }
+.export-dialog .export-scope input { width: 18px; height: 18px; min-width: 18px; margin: 0; accent-color: var(--accent-deep); }
+.export-range { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft); font-size: 13px; overflow-wrap: anywhere; }
+.export-dialog select { min-width: 0; max-width: 100%; }
+.export-ready { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
+.export-ready p { margin: 0; }
+.export-download { display: flex; justify-content: center; align-items: center; min-height: 44px; padding: 12px 16px; border-radius: 10px; color: white; background: var(--accent-deep, #245b46); text-decoration: none; }

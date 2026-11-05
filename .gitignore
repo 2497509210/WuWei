@@ -1,0 +1,39 @@
+# Local environments, caches and generated build output
+**/node_modules/
+**/.venv/
+.venv/
+.tools/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+frontend/dist/
+**/pytest-of-*/
+**/*.egg-info/
+**/.vite/
+.idea/
+.vscode/
+
+# Runtime data, credentials and private configuration
+backend/data/
+runtime-data/
+**/setup-token
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite*
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+
+# Test runs and release artifacts (only test source is committed)
+tests/.*/
+tests/e2e/shots/
+tests/e2e/.*/
+tests/**/results.json
+*.tar.gz
+*.zip
+*.log
+release-*.json
+tailnet-*.json
