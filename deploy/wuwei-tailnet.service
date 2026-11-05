@@ -1,0 +1,14 @@
+[Unit]
+Description=Wuwei private entry via Tailscale Serve (443 /wuwei)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Requires=tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/tailscale serve --bg --https=443 --set-path=/wuwei http://127.0.0.1:8790
+# Serve persists this specific handler; never reset other services on this node.
+
+[Install]
+WantedBy=multi-user.target

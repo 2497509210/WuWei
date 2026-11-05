@@ -1,0 +1,20 @@
+[Unit]
+Description=Verified Wuwei database and media backup
+
+[Service]
+Type=oneshot
+User=wuwei
+Group=wuwei
+WorkingDirectory=/opt/wuwei/current
+Environment=WUWEI_DATA_DIR=/var/lib/wuwei
+Environment=WUWEI_BACKUP_DIR=/var/backups/wuwei
+Environment=WUWEI_BACKUP_KEEP_DAYS=14
+ExecStart=/usr/bin/bash /opt/wuwei/current/scripts/backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# SQLite mode=ro can still require WAL shared-memory sidecars in the source directory.
+ReadWritePaths=/var/lib/wuwei /var/backups/wuwei
+

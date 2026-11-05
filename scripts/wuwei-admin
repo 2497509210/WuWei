@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Use the active release, including after a code rollback.
+WUWEI_ROOT="${WUWEI_ROOT:-/opt/wuwei/current}"
+WUWEI_VENV="${WUWEI_VENV:-/opt/wuwei/venv}"
+export PYTHONPATH="$WUWEI_ROOT/backend${PYTHONPATH:+:$PYTHONPATH}"
+exec "$WUWEI_VENV/bin/python" -m app.admin "$@"

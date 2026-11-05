@@ -1,0 +1,29 @@
+[Unit]
+Description=Wuwei 3D home inventory
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wuwei
+Group=wuwei
+WorkingDirectory=/opt/wuwei/current
+Environment=WUWEI_DATA_DIR=/var/lib/wuwei
+Environment=WUWEI_STATIC_DIR=/opt/wuwei/current/frontend/dist
+Environment=WUWEI_BASE_PATH=/wuwei
+Environment=WUWEI_SECURE_COOKIES=1
+Environment=WUWEI_ALLOWED_ORIGINS=https://bd-a.tail3c54de.ts.net,https://bd-a.tail3c54de.ts.net:8443
+Environment=WUWEI_VERSION=0.2.0
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/wuwei/venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8790 --proxy-headers
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/wuwei
+
+[Install]
+WantedBy=multi-user.target

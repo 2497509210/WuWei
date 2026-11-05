@@ -1,0 +1,15 @@
+[Unit]
+Description=Wuwei public entry via Tailscale Funnel (8443 /wuwei)
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/tailscale funnel --https=8443 --set-path=/wuwei http://127.0.0.1:8790
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
