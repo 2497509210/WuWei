@@ -16,6 +16,8 @@
 
 本轮增加 Git 版本管理、锁定依赖、Linux／Windows CI 和每个发布版本独立的 Python 环境；同时完成手机首屏、待找回、房间筛选、鉴权缩略图及服务端分页。新增迁移 `008_item_query_indexes` 仅添加查询索引。范围和验收见 [本轮迭代记录](docs/repository-and-usability-2026-11-05.md)。异机备份与通知按要求暂缓，已有备份继续保留。
 
+**当前线上：`2026-11-06-m3.6.1-usability`，2026-11-06 07:53（北京时间）发布，构建提交 `b78fb42`。** 后端305项、前端238项、脚本14项、Chrome106项检查通过，Linux／Windows CI通过，完整npm依赖审计0项。发布核验见 [部署记录](docs/deployment-usability-2026-11-06.md)。
+
 前版可靠性版本 **`2026-11-05-m3.5-reliability` 于 2026-11-05 20:11（北京时间）上线**，范围见 [可靠性迭代记录](docs/reliability-2026-11-05.md)，历史核验见 [可靠性部署记录](docs/deployment-reliability-2026-11-05.md)。
 
 前版批量整理与清单导出 **`2026-11-05-m3.4-bulk-export`** 于 **2026-11-05 15:39（北京时间）** 发布，范围见 [批量与导出迭代记录](docs/bulk-export-2026-11-05.md)，前版线上核验见 [部署记录](docs/deployment-bulk-2026-11-05.md)。
