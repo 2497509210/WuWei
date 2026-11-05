@@ -42,7 +42,8 @@ jobs:
           uv export --locked --extra dev --no-emit-project --format requirements.txt --output-file requirements-dev.lock > /dev/null
           git diff --exit-code -- uv.lock requirements.lock requirements-dev.lock
       - name: Install the hashed Python test environment
-        run: python -m pip install --require-hashes --only-binary=:all: -r backend/requirements-dev.lock
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r backend/requirements-dev.lock
       - name: Check dependency consistency
         run: python -m pip check
       - name: Create isolated test directories
