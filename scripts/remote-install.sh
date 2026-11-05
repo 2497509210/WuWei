@@ -1,63 +1,58 @@
 #!/usr/bin/env bash
-# 在 bd-a 上以 root 运行：解包、建 venv、预检、切换、重启、冒烟、失败回滚
+# Build an immutable release environment, validate it, then switch the service.
 set -euo pipefail
 
 VERSION="${1:?usage: remote-install.sh <version> <tar.gz>}"
 TARBALL="${2:?usage: remote-install.sh <version> <tar.gz>}"
 [[ "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "Invalid release version" >&2; exit 1; }
-RELEASE="/opt/wuwei/releases/$VERSION"
-CURRENT="/opt/wuwei/current"
-VENV="/opt/wuwei/venv"
-SERVICE="/etc/systemd/system/wuwei.service"
-PREVIOUS_SERVICE="/opt/wuwei/releases/.$VERSION.previous-service"
+PREFIX="${WUWEI_PREFIX:-/opt/wuwei}"
+DATA_DIR="${WUWEI_DATA_DIR:-/var/lib/wuwei}"
+BACKUP_DIR="${WUWEI_BACKUP_DIR:-/var/backups/wuwei}"
+SYSTEMD_DIR="${WUWEI_SYSTEMD_DIR:-/etc/systemd/system}"
+ADMIN_BIN="${WUWEI_ADMIN_BIN:-/usr/local/bin/wuwei-admin}"
+PYTHON="${WUWEI_PYTHON:-python3}"
+RELEASE="$PREFIX/releases/$VERSION"
+CURRENT="$PREFIX/current"
+VENV="$RELEASE/.venv"
+SERVICE="$SYSTEMD_DIR/wuwei.service"
+PREVIOUS_SERVICE="$PREFIX/releases/.$VERSION.previous-service"
+PREVIOUS="$(readlink -f "$CURRENT" 2>/dev/null || true)"
+SWITCHED=0
 
+for directory in "$PREFIX" "$DATA_DIR" "$BACKUP_DIR" "$SYSTEMD_DIR"; do
+  [[ "$directory" = /* && "$directory" != / ]] || { echo "Expected an absolute non-root directory: $directory" >&2; exit 1; }
+done
+[ -f "$TARBALL" ] || { echo "Release archive not found" >&2; exit 1; }
 if ! id wuwei >/dev/null 2>&1; then
-  useradd --system --create-home --home-dir /var/lib/wuwei --shell /usr/sbin/nologin wuwei
+  useradd --system --create-home --home-dir "$DATA_DIR" --shell /usr/sbin/nologin wuwei
 fi
-install -d -o root -g root -m 0755 /opt/wuwei/releases
-install -d -o wuwei -g wuwei -m 0700 /var/lib/wuwei
-install -d -o wuwei -g wuwei -m 0700 /var/backups/wuwei
-
+install -d -o root -g root -m 0755 "$PREFIX/releases"
+install -d -o wuwei -g wuwei -m 0700 "$DATA_DIR"
+install -d -o wuwei -g wuwei -m 0700 "$BACKUP_DIR"
 [ ! -e "$RELEASE" ] || { echo "Release already exists: $RELEASE" >&2; exit 1; }
 install -d -o root -g root -m 0755 "$RELEASE"
 tar -xzf "$TARBALL" -C "$RELEASE"
 chown -R root:root "$RELEASE"
 chmod -R a+rX "$RELEASE"
+[ -f "$RELEASE/REVISION" ] && grep -Eq '^[0-9a-f]{40}([0-9a-f]{24})?$' "$RELEASE/REVISION" || { echo "Committed Git revision missing or invalid" >&2; exit 1; }
+[ -s "$RELEASE/backend/requirements.lock" ] && [ -s "$RELEASE/backend/uv.lock" ] || { echo "Dependency locks missing" >&2; exit 1; }
 
-if [ ! -x "$VENV/bin/python" ]; then
-  python3 -m venv "$VENV"
+# Each release retains its own dependency graph; never mutate a shared venv.
+"$PYTHON" -m venv "$VENV"
+"$VENV/bin/python" -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: \
+  --index-url https://pypi.org/simple -r "$RELEASE/backend/requirements.lock"
+"$VENV/bin/python" -m pip check
+WUWEI_ROOT="$RELEASE" WUWEI_VENV="$VENV" bash "$RELEASE/scripts/preflight.sh" --static
+
+# Keep the existing verified pre-deployment backup behavior.
+if [ -f "$DATA_DIR/wuwei.db" ]; then
+  runuser -u wuwei -- "$PYTHON" "$RELEASE/scripts/backup.py" backup \
+    --data-dir "$DATA_DIR" --destination "$BACKUP_DIR/predeploy-$VERSION"
 fi
-"$VENV/bin/pip" install -q --disable-pip-version-check \
-  -i https://pypi.tuna.tsinghua.edu.cn/simple \
-  "fastapi>=0.115" "uvicorn[standard]>=0.30" "argon2-cffi>=23.1" "pillow>=10.0" "python-multipart>=0.0.9"
-
 if [ -f "$SERVICE" ]; then cp -p "$SERVICE" "$PREVIOUS_SERVICE"; fi
-install -m 0644 "$RELEASE/deploy/wuwei.service" "$SERVICE"
-sed -i "s/^Environment=WUWEI_VERSION=.*/Environment=WUWEI_VERSION=$VERSION/" "$SERVICE"
-install -m 0644 "$RELEASE/deploy/wuwei-funnel.service" /etc/systemd/system/wuwei-funnel.service
-install -m 0644 "$RELEASE/deploy/wuwei-tailnet.service" /etc/systemd/system/wuwei-tailnet.service
-install -m 0644 "$RELEASE/deploy/wuwei-backup.service" /etc/systemd/system/wuwei-backup.service
-install -m 0644 "$RELEASE/deploy/wuwei-backup.timer" /etc/systemd/system/wuwei-backup.timer
-systemctl daemon-reload
-systemctl enable wuwei-tailnet
-systemctl restart wuwei-tailnet
-
-# Funnel：前台进程由 systemd 托管，只暴露 8443 的 /wuwei
-systemctl enable wuwei-funnel >/dev/null 2>&1 || true
-systemctl restart wuwei-funnel
-sleep 2
-
-# 静态预检（未切换前，检查新 release）
-WUWEI_ROOT="$RELEASE" WUWEI_VENV="$VENV" bash "$RELEASE/scripts/preflight.sh"
-
-PREVIOUS="$(readlink -f "$CURRENT" 2>/dev/null || true)"
-if [ -f /var/lib/wuwei/wuwei.db ]; then
-  # Retain a separate, verified pre-migration snapshot for this release.
-  runuser -u wuwei -- python3 "$RELEASE/scripts/backup.py" backup \
-    --data-dir /var/lib/wuwei --destination "/var/backups/wuwei/predeploy-$VERSION"
-fi
 
 rollback() {
+  echo "release failed, restoring the previous code and environment" >&2
   if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
     ln -sfn "$PREVIOUS" "$CURRENT"
     if [ -f "$PREVIOUS_SERVICE" ]; then
@@ -71,38 +66,41 @@ rollback() {
     systemctl stop wuwei || true
   fi
 }
-
+failed_release() {
+  status=$?
+  trap - EXIT
+  if [ "$status" -ne 0 ] && [ "$SWITCHED" -eq 1 ]; then rollback || true; fi
+  exit "$status"
+}
+trap failed_release EXIT
+# Arm rollback before replacing the old service unit; an early service failure
+# must not leave the previous release pointed at the candidate's environment.
+SWITCHED=1
+install -m 0644 "$RELEASE/deploy/wuwei.service" "$SERVICE"
+sed -i "s/^Environment=WUWEI_VERSION=.*/Environment=WUWEI_VERSION=$VERSION/" "$SERVICE"
+for unit in wuwei-funnel.service wuwei-tailnet.service wuwei-backup.service wuwei-backup.timer; do
+  install -m 0644 "$RELEASE/deploy/$unit" "$SYSTEMD_DIR/$unit"
+done
 ln -sfn "$RELEASE" "$CURRENT"
-systemctl enable wuwei >/dev/null 2>&1 || true
-if ! systemctl restart wuwei; then
-  echo "service restart failed, rolling back..." >&2
-  rollback
-  exit 1
-fi
+systemctl daemon-reload
+systemctl enable wuwei-tailnet
+systemctl restart wuwei-tailnet
+systemctl enable wuwei-funnel
+systemctl restart wuwei-funnel
+systemctl enable wuwei
+systemctl restart wuwei
 
 for _ in $(seq 1 30); do
-  if curl -fsS --max-time 2 http://127.0.0.1:8790/api/health >/dev/null 2>&1; then
-    break
-  fi
+  if curl -fsS --max-time 2 http://127.0.0.1:8790/api/health >/dev/null 2>&1; then break; fi
   sleep 1
 done
-
-if ! WUWEI_ROOT="$CURRENT" WUWEI_VENV="$VENV" bash "$RELEASE/scripts/preflight.sh" --live; then
-  echo "live preflight failed, rolling back..."
-  rollback
-  exit 1
-fi
-
-if ! WUWEI_PUBLIC_BASE="https://bd-a.tail3c54de.ts.net:8443/wuwei" bash "$RELEASE/scripts/smoke.sh"; then
-  echo "smoke failed, rolling back..."
-  rollback
-  exit 1
-fi
-
+WUWEI_ROOT="$CURRENT" WUWEI_VENV="$VENV" bash "$RELEASE/scripts/preflight.sh" --live
+WUWEI_PUBLIC_BASE="https://bd-a.tail3c54de.ts.net:8443/wuwei" bash "$RELEASE/scripts/smoke.sh"
 systemctl enable --now wuwei-backup.timer
 systemctl start wuwei-backup.service
-install -m 0755 "$RELEASE/scripts/wuwei-admin" /usr/local/bin/wuwei-admin
-
-echo
-echo "DEPLOY OK: $VERSION"
-echo "setup token: /var/lib/wuwei/setup-token"
+install -m 0755 "$RELEASE/scripts/wuwei-admin" "$ADMIN_BIN"
+SWITCHED=0
+trap - EXIT
+printf '\nDEPLOY OK: %s\n' "$VERSION"
+printf 'Git revision: %s\n' "$(cat "$RELEASE/REVISION")"
+printf 'setup token: %s/setup-token\n' "$DATA_DIR"

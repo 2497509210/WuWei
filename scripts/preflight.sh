@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="${WUWEI_ROOT:-/opt/wuwei/current}"
-VENV="${WUWEI_VENV:-/opt/wuwei/venv}"
+VENV="${WUWEI_VENV:-$ROOT/.venv}"
 PUBLIC_BASE="${WUWEI_PUBLIC_BASE:-https://bd-a.tail3c54de.ts.net:8443/wuwei}"
 TAILNET_BASE="${WUWEI_TAILNET_BASE:-https://bd-a.tail3c54de.ts.net/wuwei}"
 LOCAL_BASE="${WUWEI_LOCAL_BASE:-http://127.0.0.1:8790}"
@@ -17,6 +17,7 @@ echo "== 物位 preflight =="
 echo "root=$ROOT"
 
 [ -f "$ROOT/backend/app/main.py" ] && ok "backend/app/main.py" || bad "backend/app/main.py 缺失"
+[ -s "$ROOT/backend/uv.lock" ] && [ -s "$ROOT/backend/requirements.lock" ] && ok "后端依赖锁" || bad "后端依赖锁缺失"
 [ -f "$ROOT/frontend/dist/index.html" ] && ok "frontend/dist/index.html" || bad "前端 dist 缺失"
 if grep -q '/wuwei/assets/' "$ROOT/frontend/dist/index.html"; then
   ok "前端 base=/wuwei/"
@@ -33,6 +34,12 @@ if [ -x "$VENV/bin/python" ]; then
   fi
 else
   bad "venv 缺失：$VENV/bin/python"
+fi
+
+if [ "$LIVE" = "--static" ]; then
+  [ "$fail" -eq 0 ] || { echo "preflight: FAILED"; exit 1; }
+  echo "preflight: PASSED (static)"
+  exit 0
 fi
 
 if systemctl cat wuwei.service >/dev/null 2>&1; then

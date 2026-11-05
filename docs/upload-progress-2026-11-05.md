@@ -36,7 +36,7 @@ Chrome 专项验证同时通过：慢网上传流程 **6 项**、照片保存等
 
 手机状态可见性曾在真实 Chrome 检查中失败：保存后新增状态位于当前视口外。修复为在保存开始和阶段变化时滚动到状态区域，再次以元素实际边界确认通过。
 
-运行方法：先按 README 以匹配的 base 构建前端，再运行 `test/wuwei/e2e/upload-progress.mjs`；从项目根目录可用 `node ../test/wuwei/e2e/upload-progress.mjs`。该脚本使用 `frontend/dist`，`WUWEI_E2E_BASE_PATH` 必须与构建一致。所有图片为合成测试数据，不读取用户照片。
+运行方法：先按 README 以匹配的 base 构建前端，再运行 `tests/e2e/upload-progress.mjs`；从项目根目录可用 `node tests/e2e/upload-progress.mjs`。该脚本使用 `frontend/dist`，`WUWEI_E2E_BASE_PATH` 必须与构建一致。所有图片为合成测试数据，不读取用户照片。
 
 ## 发布与验证边界
 

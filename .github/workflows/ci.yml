@@ -1,0 +1,65 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      VITE_BASE: /wuwei/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.7"
+      - name: Verify frozen dependency exports
+        working-directory: backend
+        shell: bash
+        run: |
+          uv lock --check
+          uv export --locked --no-dev --no-emit-project --format requirements.txt --output-file requirements.lock > /dev/null
+          uv export --locked --extra dev --no-emit-project --format requirements.txt --output-file requirements-dev.lock > /dev/null
+          git diff --exit-code -- uv.lock requirements.lock requirements-dev.lock
+      - name: Install the hashed Python test environment
+        run: python -m pip install --require-hashes --only-binary=:all: -r backend/requirements-dev.lock
+      - name: Check dependency consistency
+        run: python -m pip check
+      - name: Create isolated test directories
+        run: python -c "from pathlib import Path; Path('tests/.tmp').mkdir(parents=True, exist_ok=True)"
+      - name: Run backend regression tests
+        run: python -m pytest tests/backend -q --basetemp=tests/.tmp/pytest -o cache_dir=tests/.tmp/pytest-cache
+      - name: Exercise backup and deployment scripts
+        run: python -m unittest discover -s tests/scripts -p "test_*.py" -v
+      - name: Install the frozen frontend environment
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend regression tests
+        working-directory: frontend
+        run: npm test -- --configLoader runner --no-cache
+      - name: Build production assets
+        working-directory: frontend
+        run: npm run build
+      - name: Check shell syntax
+        shell: bash
+        run: bash -n scripts/remote-install.sh scripts/preflight.sh scripts/smoke.sh scripts/wuwei-admin

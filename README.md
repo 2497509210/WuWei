@@ -125,7 +125,7 @@ sudo -u wuwei wuwei-admin reset-password --data-dir /var/lib/wuwei --username �
 ```powershell
 Set-Location .\backend
 python -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install -e '.[dev]'
+& .\.venv\Scripts\python.exe -m pip install --require-hashes --only-binary=:all: -r requirements-dev.lock
 $env:WUWEI_DATA_DIR = Join-Path (Get-Location).Path 'data'
 $env:WUWEI_BASE_PATH = ''
 $env:WUWEI_SECURE_COOKIES = '0'
@@ -147,11 +147,11 @@ npm run dev
 
 ## 测试与构建
 
-测试代码放在同级工作区的 `test/wuwei`。以下命令从项目根目录运行，将测试数据库和临时文件放在该测试目录下，不使用已有业务数据库：
+测试代码随仓库保存在 `tests/`，克隆后即可运行。以下命令从项目根目录运行，将测试数据库和临时文件放在该测试目录下，不使用已有业务数据库：
 
 ```powershell
 $projectRoot = (Get-Location).Path
-$testRoot = Join-Path (Split-Path $projectRoot -Parent) 'test\wuwei'
+$testRoot = Join-Path $projectRoot 'tests'
 $runDir = Join-Path $testRoot ('.verification-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $runDir | Out-Null
 $env:TMPDIR = $runDir
@@ -183,7 +183,7 @@ node (Join-Path $testRoot 'e2e\upload-progress.mjs')
 - 备份测试使用临时 SQLite 数据，覆盖 WAL 数据、校验、照片完整性、恢复、保留期限和路径限制。
 - `npm run build` 执行 TypeScript 检查并生成 `frontend/dist`。3D 场景独立分块，打开找物页无需加载 3D。
 
-`e2e/m2.mjs` 验证既有流程，`e2e/m3.mjs` 验证归档、恢复、历史、撤销和隔层命名，`e2e/m4.mjs` 验证房间编辑及账号家庭管理，`e2e/m5.mjs` 验证拍照登记、最近位置、标签实际解码、稳定位置链接及安装资源。四个脚本使用当前 Windows 环境的 `backend/.venv/Scripts/python.exe` 和 `C:/Program Files/Google/Chrome/Application/chrome.exe`，分别启动临时后端并创建示例数据，输出至 `test/wuwei/.e2e-m2-*` 至 `.e2e-m5-*` 及相应 `test/wuwei/e2e/shots/` 子目录。换机器需要先核对这两个可执行文件路径。照片来自合成测试数据，手机布局使用浏览器视口验证，未操作真实账号、真机相机或操作系统安装流程。
+`e2e/m2.mjs` 验证既有流程，`e2e/m3.mjs` 验证归档、恢复、历史、撤销和隔层命名，`e2e/m4.mjs` 验证房间编辑及账号家庭管理，`e2e/m5.mjs` 验证拍照登记、最近位置、标签实际解码、稳定位置链接及安装资源。浏览器脚本通过 `tests/e2e/env.mjs` 解析运行环境：默认使用项目的 `backend/.venv`，Windows 优先使用已安装的 Chrome，其他环境使用 Playwright 浏览器；可设置 `WUWEI_TEST_PYTHON` 和 `WUWEI_TEST_CHROME` 覆盖，分别启动临时后端并创建示例数据，输出至 `tests/.e2e-m2-*` 至 `.e2e-m5-*` 及相应 `tests/e2e/shots/` 子目录。换机器需要先核对这两个可执行文件路径。照片来自合成测试数据，手机布局使用浏览器视口验证，未操作真实账号、真机相机或操作系统安装流程。
 
 `e2e/bulk-export.mjs` 使用临时数据库验证所选物品移动、单条冲突整批不变、归档结果丢失后原样重试不重复历史、批量恢复、手机布局，并实际下载解析 CSV / JSON，核对范围、中文位置、公式文本化与无私有照片路径。当前 12 项通过，不操作或导出真实业务清单。
 

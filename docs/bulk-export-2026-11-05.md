@@ -60,7 +60,7 @@
 
 接口测试另覆盖跨户／禁用账号、状态混合、重复 ID、空或超量输入、事务回滚、并发幂等、导出快照、Unicode／换行及输出上限。测试使用临时数据库；线上不批量修改真实物品，也不下载真实清单作为测试。
 
-运行方式见 [README 测试与构建](../README.md#测试与构建)。从项目根目录执行 `node ../test/wuwei/e2e/bulk-export.mjs`，`WUWEI_E2E_BASE_PATH` 与前端构建保持一致：`/` 构建配空前缀，`/wuwei/` 构建配 `/wuwei`。
+运行方式见 [README 测试与构建](../README.md#测试与构建)。从项目根目录执行 `node tests/e2e/bulk-export.mjs`，`WUWEI_E2E_BASE_PATH` 与前端构建保持一致：`/` 构建配空前缀，`/wuwei/` 构建配 `/wuwei`。
 
 ## 发布状态
 
