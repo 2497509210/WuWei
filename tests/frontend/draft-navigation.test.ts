@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement, StrictMode } from "react";
+import { createElement, StrictMode, useLayoutEffect, useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../../frontend/src/App";
@@ -8,6 +8,7 @@ import { useWorkspace } from "../../frontend/src/store/useWorkspace";
 import { FakeXHR, installFakeXHR } from "./helpers/fake-xhr";
 import { createBrowserRouter, RouterProvider, useLocation, useNavigate } from "../../frontend/node_modules/react-router-dom/dist/index.mjs";
 import { Modal } from "../../frontend/src/components/Modal";
+import { DraftNavigationProvider } from "../../frontend/src/components/DraftNavigationProvider";
 import { activateSession, invalidateSession } from "../../frontend/src/api/sessionEvents";
 
 const me = { user: { id: "u", username: "owner", display_name: "家人", role: "owner" }, household: { id: "h", name: "我家" } };
@@ -91,7 +92,7 @@ it("keeps the dirty guard active when a clean secondary modal is open", async ()
     return location.pathname === "/" ? createElement("button", { onClick: () => navigate("/edit") }, "打开编辑")
       : createElement(Modal, { title: "编辑草稿", dirty: true, onClose() {}, children: createElement(Modal, { title: "只读标签", onClose() {}, children: "二维码" }) });
   }
-  const router = createBrowserRouter([{ path: "*", element: createElement(Shell) }]);
+  const router = createBrowserRouter([{ path: "*", element: createElement(DraftNavigationProvider, { children: createElement(Shell) }) }]);
   try {
     render(createElement(RouterProvider, { router })); fireEvent.click(screen.getByRole("button", { name: "打开编辑" }));
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
@@ -99,5 +100,26 @@ it("keeps the dirty guard active when a clean secondary modal is open", async ()
     expect(window.location.pathname).toBe("/edit");
     expect(screen.getByRole("dialog", { name: "编辑草稿" })).toBeTruthy();
     expect(screen.getByRole("dialog", { name: "只读标签" })).toBeTruthy();
+  } finally { cleanup(); router.dispose(); invalidateSession(); }
+});
+
+// A navigation in the first dirty commit must not beat the guard's passive-effect registration.
+it("blocks a navigation immediately when the first input becomes dirty", async () => {
+  activateSession();
+  function Shell() {
+    const navigate = useNavigate(), location = useLocation();
+    const [dirty, setDirty] = useState(false);
+    useLayoutEffect(() => { if (dirty) void navigate("/after"); }, [dirty, navigate]);
+    return location.pathname === "/after" ? createElement("p", null, "已经离开")
+      : createElement(Modal, { title: "即时输入", dirty, onClose() {}, children: createElement("input", { "aria-label": "草稿", onChange: () => setDirty(true) }) });
+  }
+  const router = createBrowserRouter([{ path: "*", element: createElement(DraftNavigationProvider, { children: createElement(Shell) }) }]);
+  try {
+    render(createElement(RouterProvider, { router }));
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.change(screen.getByLabelText("草稿"), { target: { value: "快速输入" } });
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("已经离开")).toBeNull();
+    expect((screen.getByLabelText("草稿") as HTMLInputElement).value).toBe("快速输入");
   } finally { cleanup(); router.dispose(); invalidateSession(); }
 });

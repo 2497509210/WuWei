@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { createBrowserRouter, Navigate, Route, RouterProvider, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError, getMe, getSetupStatus, logout, type MeResponse } from "./api/client";
 import { Brand } from "./components/Brand";
+import { DraftNavigationProvider } from "./components/DraftNavigationProvider";
 import { LoginPage } from "./pages/LoginPage";
 import { SetupPage } from "./pages/SetupPage";
 import type { LocateTarget } from "./pages/InventoryPage";
@@ -20,7 +21,7 @@ type Screen = "loading" | "setup" | "login" | "home" | "error";
 export default function App() {
   const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null);
   useEffect(() => {
-    const current = createBrowserRouter([{ path: "*", element: <AppContent /> }], {
+    const current = createBrowserRouter([{ path: "*", element: <DraftNavigationProvider><AppContent /></DraftNavigationProvider> }], {
       basename: import.meta.env.BASE_URL.replace(/\/$/, "") || "/",
     });
     setRouter(current);
