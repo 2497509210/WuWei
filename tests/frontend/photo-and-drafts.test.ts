@@ -149,10 +149,11 @@ it("retains an edit on conflict and requires explicit confirmation against the l
   await detail(); fireEvent.click(screen.getByRole("button", { name: "编辑资料" }));
   fireEvent.change(screen.getByLabelText("备注"), { target: { value: "我还没保存的备注" } });
   fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
-  await screen.findByText("家人改了备注");
+  await screen.findAllByText("家人改了备注");
   expect((screen.getByLabelText("备注") as HTMLTextAreaElement).value).toBe("我还没保存的备注");
   expect((screen.getByRole("button", { name: "保存资料" }) as HTMLButtonElement).disabled).toBe(true);
   expect(writes).toBe(1);
+  fireEvent.click(screen.getByRole("radio", { name: "备注：保留我的修改" }));
   fireEvent.click(screen.getByRole("button", { name: "核对后继续编辑" }));
   fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
   await screen.findByText("资料已保存");

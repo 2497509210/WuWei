@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RoomSummary } from "../api/client";
 import { useWorkspace } from "../store/useWorkspace";
-import { Modal } from "./Modal";
+import { confirmDiscard, Modal } from "./Modal";
 import "../styles/room-editor.css";
 
 function roomDraft(room: RoomSummary) {
@@ -48,7 +48,7 @@ export function RoomEditor({ room, onClose }: { room: RoomSummary; onClose: () =
   }
 
   async function reload() {
-    if (inFlight.current) return;
+    if (inFlight.current || !confirmDiscard(changed)) return;
     inFlight.current = true;
     setBusy(true); setError(""); setMessage("");
     try {
@@ -63,7 +63,7 @@ export function RoomEditor({ room, onClose }: { room: RoomSummary; onClose: () =
     }
   }
 
-  return <Modal title="编辑房间" onClose={onClose} busy={busy}>
+  return <Modal title="编辑房间" onClose={onClose} busy={busy} dirty={changed}>
     <form className="room-editor inventory-form" onSubmit={event => { event.preventDefault(); void save(); }}>
       <p className="inventory-muted">修改名称和实际尺寸。缩小房间前，请先调整可能超出范围的容器。</p>
       <fieldset disabled={busy || conflict}>
@@ -79,7 +79,7 @@ export function RoomEditor({ room, onClose }: { room: RoomSummary; onClose: () =
       {conflict && <button type="button" disabled={busy} onClick={() => void reload()}>加载最新房间</button>}
       <div className="inventory-actions">
         <button className="inventory-primary" type="submit" disabled={busy || conflict || !valid || !changed}>{busy ? "正在处理…" : "保存房间"}</button>
-        <button type="button" disabled={busy} onClick={onClose}>取消</button>
+        <button type="button" disabled={busy} onClick={() => { if (confirmDiscard(changed)) onClose(); }}>取消</button>
       </div>
     </form>
   </Modal>;

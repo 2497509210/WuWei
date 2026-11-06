@@ -80,7 +80,7 @@ describe("verified location defaults",()=>{
   // Recent storage must hold IDs only; names and ownership are freshly checked on each use.
   it("remembers a successful location by ID and resolves its current name when opened again",async()=>{
     render(createElement(InventoryPage,props()));await registerOnce();
-    expect(Object.values(localStorage)).toEqual(["cp"]);
+    expect(Object.values(localStorage)).toEqual(['["cp"]']);
     handler=url=>url.pathname.endsWith("/rooms/r")?json({room,containers:[{...cabinet,compartments:[{...compartment,name:"新的层名"}]}]}):normal(url);
     fireEvent.click(screen.getByRole("button",{name:"登记物品"}));
     expect((await screen.findByRole("button",{name:"新的层名"})).getAttribute("aria-pressed")).toBe("true");
@@ -383,7 +383,7 @@ describe("camera registration",()=>{
     expect(screen.getByRole("img",{name:"待登记照片预览"})).toBeTruthy();
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("已登记「相机」");
     expect(inputs[0].get("operation_id")).toBe(inputs[1].get("operation_id"));
-    expect(Object.values(localStorage)).toEqual(["cp"]);expect(revoked).toEqual(["blob:preview-1"]);
+    expect(Object.values(localStorage)).toEqual(['["cp"]']);expect(revoked).toEqual(["blob:preview-1"]);
   });
   // A changed photo may share its filename/size; file replacement must still start a new operation.
   it("uses a new operation after replacing a failed photo with different content",async()=>{

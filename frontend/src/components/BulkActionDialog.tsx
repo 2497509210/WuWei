@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, type Item } from "../api/client";
 import { applyBulkAction, type BulkAction, type BulkInput, type BulkResult } from "../api/bulk";
 import { LocationPicker } from "./LocationPicker";
-import { Modal } from "./Modal";
+import { confirmDiscard, Modal } from "./Modal";
 import "../styles/bulk.css";
 
 export type BulkSelection = Pick<Item, "id" | "name" | "quantity" | "version" | "compartment_id" | "archived_at">;
 const verbs: Record<BulkAction, string> = { move: "移动", archive: "归档", restore: "恢复" };
 
-export function BulkActionDialog({ action, items, onClose, onSuccess, onConflict }: {
+export function BulkActionDialog({ action, items, onClose, onSuccess, onConflict, refreshPending = false }: {
   action: BulkAction; items: BulkSelection[]; onClose: () => void;
   onSuccess: (result: BulkResult) => void; onConflict: () => void;
+  refreshPending?: boolean;
 }) {
   const [destination, setDestination] = useState("");
   const [reason, setReason] = useState("");
@@ -24,6 +25,7 @@ export function BulkActionDialog({ action, items, onClose, onSuccess, onConflict
   useEffect(() => () => { generation.current++; request.current?.abort(); }, []);
   const invalidCount = items.length < 1 || items.length > 100;
   const sameLocation = action === "move" && destination ? items.filter(item => item.compartment_id === destination).length : 0;
+  const dirty = action === "archive" ? Boolean(reason.trim()) : Boolean(destination);
 
   async function submit() {
     if (saving.current || conflict) return;
@@ -54,9 +56,10 @@ export function BulkActionDialog({ action, items, onClose, onSuccess, onConflict
     }
   }
 
-  return <Modal title={`批量${verbs[action]}`} onClose={onClose} busy={busy}>
+  return <Modal title={`批量${verbs[action]}`} onClose={onClose} busy={busy} dirty={dirty}>
     <form className="inventory-form bulk-form" noValidate onSubmit={event => { event.preventDefault(); void submit(); }}>
       <p className="bulk-summary">将{verbs[action]} {items.length} 条物品记录，请确认所选名称和数量。</p>
+      {refreshPending && <p className="inventory-muted" role="status">清单可能已有更新，当前选择与版本保持不变；完成或退出批量整理后会自动核验。</p>}
       <ul className="bulk-target-list" aria-label="本次选择">{items.map(item => <li key={item.id}><strong>{item.name}</strong><span>数量 {item.quantity}</span></li>)}</ul>
       <fieldset disabled={busy || conflict}>
         {action === "archive" ? <>
@@ -66,7 +69,7 @@ export function BulkActionDialog({ action, items, onClose, onSuccess, onConflict
       </fieldset>
       {sameLocation > 0 && <p className="bulk-noop">{sameLocation} 条记录已在这个隔层，移动时将保持不变</p>}
       {error && <div className="inventory-error" role="alert">{error}</div>}
-      {conflict && <div className="bulk-conflict"><p>所选记录已变化，不能直接重试这批操作。请刷新清单，再核对并重新选择。</p><button type="button" onClick={onConflict}>刷新并重新选择</button></div>}
+      {conflict && <div className="bulk-conflict"><p>所选记录已变化，不能直接重试这批操作。请刷新清单，再核对并重新选择。</p><button type="button" onClick={() => { if (confirmDiscard(dirty)) onConflict(); }}>刷新并重新选择</button></div>}
       {busy && <div className="bulk-wait"><p role="status">正在处理 {items.length} 条记录，请等待确认…</p><button type="button" onClick={() => request.current?.abort()}>停止等待</button></div>}
       <button type="submit" className="inventory-primary" disabled={busy || conflict || invalidCount || (action !== "archive" && !destination)}>{busy ? "正在处理…" : `确认${verbs[action]}`}</button>
     </form>

@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InventoryPage } from "../../frontend/src/pages/InventoryPage";
+import { BulkActionDialog } from "../../frontend/src/components/BulkActionDialog";
 import type { Item } from "../../frontend/src/api/client";
 
 const me={user:{id:"owner",username:"owner",display_name:"家人",role:"owner" as const},household:{id:"home",name:"我家"}};
@@ -24,7 +25,7 @@ function normal(url:URL){
   return json({error:{message:"Unexpected request"}},400);
 }
 beforeEach(()=>{items=[{...first},{...second}];handler=url=>normal(url);vi.stubGlobal("fetch",(path:string,init:RequestInit={})=>Promise.resolve(handler(new URL(path,"http://localhost"),init)));});
-afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
+afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();vi.useRealTimers();});
 const props=()=>({me,onLogout:async()=>{},onArrange:()=>{}});
 async function enter(){await screen.findByRole("button",{name:"查看护照"});fireEvent.click(screen.getByRole("button",{name:"批量整理"}));}
 function select(name:string){fireEvent.click(screen.getByRole("checkbox",{name:`选择${name}`}));}
@@ -99,6 +100,56 @@ describe("bulk selection",()=>{
 });
 
 describe("bulk confirmation and recovery",()=>{
+  // A deferred refresh must be visible inside the modal without replacing its draft or selection.
+  it("shows a deferred refresh notice while keeping the bulk draft intact",()=>{
+    const dialogProps={action:"archive" as const,items:[first],onClose(){},onSuccess(){},onConflict(){},refreshPending:false};
+    const view=render(createElement(BulkActionDialog,dialogProps));
+    fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"核验前保留原因"}});
+    view.rerender(createElement(BulkActionDialog,{...dialogProps,refreshPending:true}));
+    expect(screen.getByRole("status").textContent).toContain("当前选择与版本保持不变");
+    expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("核验前保留原因");
+    expect(within(screen.getByRole("list",{name:"本次选择"})).getByText("护照")).toBeTruthy();
+  });
+  // Typed bulk reasons must survive closing, Escape and refresh until deliberately discarded.
+  it.each(["close", "Escape"])("preserves a pending archive reason on declined %s",async entry=>{
+    render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
+    fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"留到下次整理"}});
+    const confirmation=vi.spyOn(window,"confirm").mockReturnValue(false);
+    if(entry==="Escape")fireEvent(screen.getByRole("dialog",{name:"批量归档"}),new Event("cancel",{cancelable:true}));
+    else fireEvent.click(screen.getByRole("button",{name:"关闭对话框"}));
+    expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("留到下次整理");
+    const before=new Event("beforeunload",{cancelable:true});window.dispatchEvent(before);expect(before.defaultPrevented).toBe(true);
+    confirmation.mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"关闭对话框"}));
+    expect(screen.queryByRole("dialog")).toBeNull();expect(screen.getByText("已选 1 条")).toBeTruthy();
+    const after=new Event("beforeunload",{cancelable:true});window.dispatchEvent(after);expect(after.defaultPrevented).toBe(false);
+  });
+  // The chosen target is also a draft for both moving and restoring records.
+  it.each(["move","restore"])("preserves the selected %s destination when closing is declined",async action=>{
+    if(action==="restore")items=items.map(item=>({...item,archived_at:"2026-11-05T01:00:00Z",compartment_id:null}));
+    render(createElement(InventoryPage,props()));if(action==="restore")fireEvent.click(screen.getByRole("button",{name:"已归档"}));
+    await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:action==="move"?"批量移动":"批量恢复"}));await destination();
+    vi.spyOn(window,"confirm").mockReturnValue(false);fireEvent.click(screen.getByRole("button",{name:"关闭对话框"}));
+    expect(screen.getByRole("button",{name:"证件层"}).getAttribute("aria-pressed")).toBe("true");
+    const event=new Event("beforeunload",{cancelable:true});window.dispatchEvent(event);expect(event.defaultPrevented).toBe(true);
+  });
+  // Reselecting after a conflict discards the reason as well as the stale selection and needs the same guard.
+  it("retains a conflicting reason and selected versions when reselecting is declined",async()=>{
+    handler=url=>url.pathname.endsWith("/actions/bulk")?json({error:{code:"bulk_conflict",message:"记录已变化，请刷新重新选择"}},409):normal(url);
+    render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
+    fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"保留这个原因"}});fireEvent.click(screen.getByRole("button",{name:"确认归档"}));
+    await screen.findByText("记录已变化，请刷新重新选择",{exact:false});const confirmation=vi.spyOn(window,"confirm").mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button",{name:"刷新并重新选择"}));
+    expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("保留这个原因");
+    expect((screen.getByRole("button",{name:"确认归档"}) as HTMLButtonElement).disabled).toBe(true);
+    confirmation.mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"刷新并重新选择"}));
+    await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());expect(screen.getByText("已选 0 条")).toBeTruthy();
+  });
+  // Empty and cleared forms must remain dismissible without creating false dirty states.
+  it("closes a bulk form after its reason is cleared without asking to discard",async()=>{
+    render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
+    fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"先写一下"}});fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:""}});
+    vi.spyOn(window,"confirm").mockReturnValue(false);fireEvent.click(screen.getByRole("button",{name:"关闭对话框"}));expect(screen.queryByRole("dialog")).toBeNull();
+  });
   // A failed write preserves the exact selected versions and reason under the same idempotency ID.
   it("lists selected names and quantities and retries a failed archive with the same request",async()=>{
     const requests:Array<Record<string,unknown>>=[];
@@ -180,8 +231,11 @@ describe("bulk confirmation and recovery",()=>{
     const requests:Array<{input:unknown;finish:(response:Response)=>void}>=[];
     handler=(url,init)=>url.pathname.endsWith("/actions/bulk")?new Promise(resolve=>{requests.push({input:JSON.parse(String(init.body)),finish:resolve});}):normal(url);
     render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
+    fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"等待期间保留的原因"}});
     fireEvent.click(screen.getByRole("button",{name:"确认归档"}));fireEvent.click(screen.getByRole("button",{name:"停止等待"}));
     await screen.findByText(/尚未确认批量操作结果/);
+    vi.spyOn(window,"confirm").mockReturnValue(false);fireEvent.click(screen.getByRole("button",{name:"关闭对话框"}));
+    expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("等待期间保留的原因");
     fireEvent.click(screen.getByRole("button",{name:"确认归档"}));
     await act(async()=>{requests[0].finish(json({items:[first],processed:1,changed:1,replayed:false}));});
     expect(screen.getByRole("dialog",{name:"批量归档"})).toBeTruthy();

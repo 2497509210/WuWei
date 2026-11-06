@@ -65,8 +65,9 @@ try {
   const current = (await (await api.get(`${base}/api/items/${item.id}`)).json()).item;
   assert.equal((await api.patch(`${base}/api/items/${item.id}`, { data: { expected_version: current.version, notes: "家人刚保存的备注" } })).status(), 200);
   await detail.getByRole("button", { name: "保存资料", exact: true }).click(); await detail.getByRole("button", { name: "核对后继续编辑", exact: true }).waitFor();
-  check("编辑冲突保留草稿并在核对前禁用保存", await detail.getByLabel("备注", { exact: true }).inputValue() === "我尚未保存的备注" && !await detail.getByRole("button", { name: "保存资料" }).isEnabled() && await detail.getByText("家人刚保存的备注", { exact: true }).isVisible());
+  check("编辑冲突保留草稿并在核对前禁用保存", await detail.getByLabel("备注", { exact: true }).inputValue() === "我尚未保存的备注" && !await detail.getByRole("button", { name: "保存资料" }).isEnabled() && await detail.getByRole("region", { name: "资料更新冲突" }).getByText("家人刚保存的备注", { exact: true }).isVisible());
   await page.screenshot({ path: path.join(shots, "01-conflict-mobile.png"), fullPage: true });
+  await detail.getByRole("radio", { name: "备注：保留我的修改", exact: true }).check();
   await detail.getByRole("button", { name: "核对后继续编辑", exact: true }).click(); await detail.getByRole("button", { name: "保存资料", exact: true }).click(); await detail.getByText("资料已保存", { exact: true }).waitFor();
   check("明确核对后可提交保留的草稿", (await (await api.get(`${base}/api/items/${item.id}`)).json()).item.notes === "我尚未保存的备注");
   await detail.getByRole("button", { name: "关闭对话框" }).click();

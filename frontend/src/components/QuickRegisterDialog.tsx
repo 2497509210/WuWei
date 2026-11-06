@@ -14,7 +14,7 @@ function transferSize(bytes: number): string {
 type TransferState = UploadProgress & { startedAt: number; lastProgressAt: number; uploadedAt: number | null };
 
 export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, onSaved }: {
-  me: MeResponse; initialCompartmentId?: string; onClose: () => void; onSaved: (item: Item) => void;
+  me: MeResponse; initialCompartmentId?: string; onClose: () => void; onSaved: (item: Item, options?: { continueRegistration?: boolean }) => void;
 }) {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -26,6 +26,10 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
   const [error, setError] = useState("");
   const [transfer, setTransfer] = useState<TransferState | null>(null);
   const [clock, setClock] = useState(0);
+  const [cleanLocation, setCleanLocation] = useState(initialCompartmentId);
+  const [continued, setContinued] = useState(0);
+  const [saveMode, setSaveMode] = useState<"close" | "continue">("close");
+  const [success, setSuccess] = useState("");
   const photoRevision = useRef(0);
   const operation = useRef({ signature: "", id: "" });
   const saving = useRef(false);
@@ -35,6 +39,7 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
   const nameInput = useRef<HTMLInputElement>(null);
   const locationFields = useRef<HTMLDivElement>(null);
   const progressPanel = useRef<HTMLElement>(null);
+  useEffect(() => { if (continued && !busy) nameInput.current?.focus(); }, [continued, busy]);
   useEffect(() => () => { generation.current++; upload.current?.abort(); preparation.current?.abort(); }, []);
   useEffect(() => {
     if (!busy) return;
@@ -76,7 +81,7 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
     photoRevision.current++; setPreparing(false); setPhoto(undefined); setPhotoInfo(null);
   }
 
-  async function save() {
+  async function save(continueRegistration = false) {
     if (saving.current || preparation.current) return;
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length > 120) { setError("请填写 1–120 字的物品名称"); nameInput.current?.focus(); return; }
@@ -91,7 +96,7 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
     try {
       if (signature !== operation.current.signature) operation.current = { signature, id: crypto.randomUUID() };
     } catch { setError("无法开始登记，请刷新页面后重试"); return; }
-    saving.current = true; setBusy(true); setError("");
+    saving.current = true; setBusy(true); setSaveMode(continueRegistration ? "continue" : "close"); setError(""); setSuccess("");
     const owner = generation.current;
     const controller = new AbortController(); upload.current = controller;
     const startedAt = Date.now();
@@ -110,7 +115,14 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
         }));
       });
       if (owner !== generation.current) return;
-      rememberLocation(me, location); onSaved(item);
+      rememberLocation(me, location);
+      if (continueRegistration) {
+        operation.current = { signature: "", id: "" };
+        photoRevision.current++;
+        setName(""); setPhoto(undefined); setPhotoInfo(null); setTransfer(null); setClock(0); setError("");
+        setCleanLocation(location); setContinued(count => count + 1); setSuccess(`已登记「${item.name}」，可以继续登记下一件`);
+      }
+      onSaved(item, continueRegistration ? { continueRegistration: true } : undefined);
     } catch (error) {
       if (owner !== generation.current) return;
       if (error instanceof ApiError && error.code === "compartment_not_found") { forgetLocation(me, location); setLocation(""); }
@@ -127,7 +139,7 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
   const speed = transfer && uploadSeconds > 0 && transfer.loaded > 0 ? transferSize(transfer.loaded / uploadSeconds) : null;
   const percentage = transfer?.total ? Math.min(100, Math.floor((transfer.loaded / transfer.total) * 100)) : undefined;
 
-  return <Modal title="拍照登记" onClose={onClose} busy={busy} dirty={Boolean(name || photo || preparing || (location && location !== initialCompartmentId))}>
+  return <Modal title="拍照登记" onClose={onClose} busy={busy} dirty={Boolean(name || photo || preparing || (location && location !== cleanLocation))}>
     <form className="inventory-form quick-register-form" noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
       <p className="inventory-muted">拍一张实物或所在抽屉的照片，再填写名称和位置。也可以暂不添加照片。</p>
       <fieldset disabled={busy}>
@@ -135,9 +147,10 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
         {preparing && <div className="quick-photo-processing"><p role="status">正在处理照片…</p><p className="inventory-muted">在这台设备上减小照片后上传。你可以继续填写名称和位置，或重新选择照片。</p><button type="button" onClick={removePhoto}>取消照片处理</button></div>}
         {preview && photo && <div className="quick-photo-preview"><img src={preview} alt="待登记照片预览" />{photoInfo && <p className="quick-photo-size">原照片 {transferSize(photoInfo.originalBytes)} · 待上传 {transferSize(photo.size)}{photoInfo.compressed ? "（已压缩）" : "（保留原图）"}</p>}<button type="button" onClick={removePhoto}>移除照片</button></div>}
         <label>物品名称<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} maxLength={120} required placeholder="例如：备用相机" autoComplete="off" /></label>
-        <div ref={locationFields}><LocationPicker value={location} onChange={setLocation} initialCompartmentId={initialCompartmentId} onInvalidInitial={id => forgetLocation(me, id)} /></div>
+        <div ref={locationFields}><LocationPicker me={me} recentRevision={continued} value={location} onChange={setLocation} initialCompartmentId={initialCompartmentId} onInvalidInitial={id => forgetLocation(me, id)} /></div>
       </fieldset>
       {error && <div className="inventory-error" role="alert">{error}</div>}
+      {success && <p className="inventory-success" role="status">{success}</p>}
       {busy && transfer && <section ref={progressPanel} className="quick-upload-status" aria-label="上传状态" role="status" aria-live="polite">
         <div className="quick-upload-heading"><strong>{transfer.phase === "saving" ? (photo ? "照片已传完，等待服务器确认保存" : "数据已传完，等待服务器确认保存") : photo ? "正在上传照片…" : "正在发送物品信息…"}</strong>{percentage !== undefined && <span>{percentage}%</span>}</div>
         <div className={`quick-upload-track${percentage === undefined ? " is-indeterminate" : ""}`} role="progressbar" aria-label="上传进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
@@ -149,7 +162,8 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
         {transfer.phase === "saving" && <p className="quick-upload-notice">正在等待服务器返回结果，请勿重复登记。</p>}
         <button type="button" onClick={() => upload.current?.abort()}>停止等待</button>
       </section>}
-      <button type="submit" className="inventory-primary" disabled={busy || preparing}>{busy ? "正在保存…" : "保存物品"}</button>
+      <div className="quick-register-actions"><button type="submit" className="inventory-primary" disabled={busy || preparing}>{busy && saveMode === "close" ? "正在保存…" : "保存物品"}</button>
+        <button type="button" disabled={busy || preparing} onClick={() => void save(true)}>{busy && saveMode === "continue" ? "正在保存…" : "保存并继续"}</button></div>
     </form>
   </Modal>;
 }

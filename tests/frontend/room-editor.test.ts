@@ -36,7 +36,7 @@ beforeEach(() => {
     throw new Error(`Unexpected ${init.method ?? "GET"} ${path}`);
   });
 });
-afterEach(() => { cleanup(); useWorkspace.getState().reset(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); useWorkspace.getState().reset(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function openEditor() {
   render(createElement(WorkspacePage, { me, onLogout: async () => {}, onInventory() {} }));
   if (mobile) fireEvent.click(await screen.findByRole("button", { name: "房间设置", exact: true }));
@@ -74,12 +74,66 @@ describe("room editor", () => {
     await dialog.findByText("房间已被更新", { exact: false });
     expect((dialog.getByLabelText("房间名称") as HTMLInputElement).value).toBe("我的旧草稿");
     expect((dialog.getByRole("button", { name: "保存房间" }) as HTMLButtonElement).disabled).toBe(true);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(dialog.getByRole("button", { name: "加载最新房间" }));
     await waitFor(() => expect((dialog.getByLabelText("房间名称") as HTMLInputElement).value).toBe("另一个设备的名称"));
     fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "确认后修改" } });
     fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
     await waitFor(() => expect(room.name).toBe("确认后修改"));
     expect(writes[1].expected_version).toBe(2);
+  });
+
+  // Each dismiss entry must consult the changed draft before the real editor unmounts.
+  it.each(["取消", "关闭对话框", "Escape"])("retains a room draft when discarding via %s is declined", async entry => {
+    const dialog = await openEditor();
+    fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "未保存的书房" } });
+    const confirmation = vi.spyOn(window, "confirm").mockReturnValue(false);
+    if (entry === "Escape") fireEvent(screen.getByRole("dialog", { name: "编辑房间" }), new Event("cancel", { cancelable: true }));
+    else fireEvent.click(dialog.getByRole("button", { name: entry, exact: true }));
+    expect((screen.getByLabelText("房间名称") as HTMLInputElement).value).toBe("未保存的书房");
+    expect(room.name).toBe("主卧"); expect(writes).toHaveLength(0);
+    confirmation.mockReturnValue(true);
+    fireEvent.click(dialog.getByRole("button", { name: "取消", exact: true }));
+    expect(screen.queryByRole("dialog", { name: "编辑房间" })).toBeNull();
+  });
+
+  // The browser refresh guard must track actual changes and disappear after a successful save.
+  it("protects a changed room from refresh and clears protection when saved", async () => {
+    const dialog = await openEditor();
+    fireEvent.change(dialog.getByLabelText("宽（厘米）"), { target: { value: "500" } });
+    const before = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(before);
+    expect(before.defaultPrevented).toBe(true);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "编辑房间" })).toBeNull());
+    const after = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false); expect(room.width_cm).toBe(500);
+  });
+
+  // Reloading a conflict destroys the local draft, so declining must preserve both inputs and the conflict gate.
+  it("keeps a conflicting room draft when loading latest is declined", async () => {
+    const dialog = await openEditor(); failure = "conflict";
+    fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "我的旧草稿" } });
+    fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
+    await dialog.findByText("房间已被更新", { exact: false });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(dialog.getByRole("button", { name: "加载最新房间" }));
+    await waitFor(() => expect((dialog.getByRole("button", { name: "加载最新房间" }) as HTMLButtonElement).disabled).toBe(false));
+    expect((dialog.getByLabelText("房间名称") as HTMLInputElement).value).toBe("我的旧草稿");
+    expect((dialog.getByRole("button", { name: "保存房间" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(writes).toHaveLength(1);
+  });
+
+  // Reverting to the baseline makes the editor clean again and should not add a dismiss prompt.
+  it("closes an unchanged or reverted room without a discard prompt", async () => {
+    const dialog = await openEditor();
+    fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "临时修改" } });
+    fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "主卧" } });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    fireEvent.click(dialog.getByRole("button", { name: "取消", exact: true }));
+    expect(screen.queryByRole("dialog", { name: "编辑房间" })).toBeNull();
   });
 
   it("opens the same editor from mobile room settings", async () => {

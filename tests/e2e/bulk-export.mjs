@@ -57,6 +57,7 @@ try{
   await dialog.getByRole("button",{name:"确认归档",exact:true}).click();
   await dialog.getByRole("button",{name:"刷新并重新选择",exact:true}).waitFor();
   check("一件版本冲突时整批归档均不生效",(await(await api.get(`${base}/api/items?status=archived`)).json()).items.length===0);
+  page.once("dialog",prompt=>prompt.accept());
   await dialog.getByRole("button",{name:"刷新并重新选择",exact:true}).click();await dialog.waitFor({state:"hidden"});
   await page.getByRole("checkbox",{name:"选择证件袋",exact:true}).check();
   await page.getByRole("checkbox",{name:"选择备用钥匙",exact:true}).check();

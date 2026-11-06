@@ -13,8 +13,11 @@ import type { ExportFilter } from "../api/exports";
 import { resolveCompartment } from "../api/mobile";
 import { findSearch, type FindNavigation, type FindView } from "../lib/findNavigation";
 import { useFindScroll } from "../hooks/useFindScroll";
+import { useInventoryRefresh } from "../hooks/useInventoryRefresh";
+import { RegistrationReceipt } from "../components/RegistrationReceipt";
 import "../styles/bulk.css";
 import "../styles/inventory-controls.css";
+import "../styles/registration-receipt.css";
 
 export type LocateTarget = { roomId: string; containerId: string; compartmentId: string | null };
 
@@ -51,6 +54,7 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState("");
+  const [registered, setRegistered] = useState<Item[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
   const [selection, setSelection] = useState<BulkSelection[]>([]);
   const [selectionError, setSelectionError] = useState("");
@@ -65,6 +69,8 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
   const failed = failedView === requestedView;
   const trusted = verifiedView === requestedView && !loading && !failed;
   const pending = !failed && (loading || verifiedView !== requestedView);
+  const refresh = useInventoryRefresh(Boolean(selected || registration || bulkMode || selection.length || bulkDialog || exportDialog), pending,
+    () => setRevision(value => value + 1));
   const scrollPage = useFindScroll(me, navigation ? "/find" + findSearch(view) : undefined, trusted, listHeading);
   const sequence = useRef(0);
   const consumed = useRef("");
@@ -139,6 +145,7 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
           setItems(result.items);
           setPagination({ total: result.total ?? result.items.length, page: result.page ?? page, pageSize: result.page_size ?? 40, hasMore: result.has_more ?? false });
           setVerifiedView(requestedView); setFailedView(null);
+          refresh.verified();
           setSelection(selected => selected.filter(entry => result.items.some(item => item.id === entry.id)));
         }
       })
@@ -245,6 +252,8 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
       {failed && <div className="inventory-error" role="alert">{error}<button onClick={() => setRevision(value => value + 1)}>重新加载</button></div>}
       {failed && <div className="inventory-stale-note" role="status"><strong>{verifiedView ? "当前筛选未能加载，以下为上次结果" : "当前筛选未能加载，尚无已核验的结果"}</strong><p>可打开单件详情重新读取最新资料；清单重新加载成功前，不能勾选、批量处理或导出。</p></div>}
       {notice && <p className="inventory-success" role="status">{notice}</p>}
+      {refresh.deferred && <p className="inventory-refresh-notice" role="status">清单可能已有更新，完成当前操作并关闭弹窗或退出批量整理后，会自动核验最新记录。</p>}
+      {registered.length > 0 && <RegistrationReceipt key={registered.map(item => item.id).join(":")} items={registered} visibleIds={items.map(item => item.id)} verified={trusted} onView={setSelected} onDismiss={() => setRegistered([])} />}
       {pending ? <p role="status" className="inventory-loading">正在读取物品…</p> : !items.length ? (failed ? null : <div className="inventory-empty"><span aria-hidden="true">⌂</span><h3>{query ? "还没有找到这件物品" : status === "archived" ? "还没有归档物品" : status === "missing" ? "没有待找回的物品" : "给第一件物品留下位置"}</h3><p>{query ? "换个叫法试试，也可以在资料中补充别名。" : status === "archived" ? "暂时不用的物品可以归档；需要时选择一个位置恢复。" : status === "missing" ? "记录为“这里没找到”的物品会显示在这里。" : "选择一个隔层，一次登记多件；一箱露营工具也可以先记成一组。"}</p>{(query || status === "active") && <button onClick={() => { if (query) { updateView({ query: "", page: 1 }, true); } else openRegistration("register"); }}>{query ? "清除搜索" : "开始登记"}</button>}{status === "active" && <button onClick={() => onArrange()}>布置房间和容器</button>}</div>) :
         <div className="inventory-grid">{items.map(item => <div key={item.id} className={bulkMode ? `inventory-selection-row${selection.some(entry => entry.id === item.id) ? " is-selected" : ""}` : "inventory-item-wrap"}>
           {bulkMode && <label className="bulk-select-box"><input type="checkbox" aria-label={`选择${item.name}`} disabled={!trusted} checked={selection.some(entry => entry.id === item.id)} onChange={() => toggleItem(item)} /><span className="bulk-select-caption">选择{item.name}</span></label>}
@@ -254,10 +263,10 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
         </button></div>)}</div>}
       <nav className="inventory-pagination" aria-label="物品清单分页"><button type="button" disabled={!trusted || page <= 1} onClick={() => changePage(page - 1)}>上一页</button><span>{trusted ? `第 ${rangeStart}–${rangeEnd} 条，共 ${pagination.total} 条` : "当前分页未确认"}</span><button type="button" disabled={!trusted || !pagination.hasMore} onClick={() => changePage(page + 1)}>下一页</button></nav>
     </main>
-    {selected && <ItemDetail key={selected.id} initial={selected} onClose={() => setSelected(null)} onUpdated={updated} onLocate={onArrange} />}
-    {registration?.kind === "register" && <RegisterDialog key={registration.initialId} me={me} initialCompartmentId={registration.initialId} onClose={() => setRegistration(null)} onSaved={count => { setRegistration(null); setRevision(value => value + 1); setNotice(`已登记 ${count} 条物品记录`); }} />}
-    {registration?.kind === "capture" && <QuickRegisterDialog key={registration.initialId} me={me} initialCompartmentId={registration.initialId} onClose={() => setRegistration(null)} onSaved={item => { setRegistration(null); setRevision(value => value + 1); setNotice(`已登记「${item.name}」`); }} />}
-    {trusted && bulkDialog && <BulkActionDialog action={bulkDialog.action} items={bulkDialog.items} onClose={() => setBulkDialog(null)} onSuccess={bulkSucceeded} onConflict={refreshAfterConflict} />}
+    {selected && <ItemDetail key={selected.id} initial={selected} refreshPending={refresh.deferred} onClose={() => setSelected(null)} onUpdated={updated} onLocate={onArrange} />}
+    {registration?.kind === "register" && <RegisterDialog key={registration.initialId} me={me} initialCompartmentId={registration.initialId} onClose={() => setRegistration(null)} onRegistered={setRegistered} onSaved={() => { setRegistration(null); setRevision(value => value + 1); setNotice(""); }} />}
+    {registration?.kind === "capture" && <QuickRegisterDialog key={registration.initialId} me={me} initialCompartmentId={registration.initialId} onClose={() => setRegistration(null)} onSaved={(item, options) => { if (!options?.continueRegistration) setRegistration(null); setRegistered([item]); setRevision(value => value + 1); setNotice(""); }} />}
+    {trusted && bulkDialog && <BulkActionDialog action={bulkDialog.action} items={bulkDialog.items} refreshPending={refresh.deferred} onClose={() => setBulkDialog(null)} onSuccess={bulkSucceeded} onConflict={refreshAfterConflict} />}
     {trusted && exportDialog && <ExportDialog filter={exportDialog.filter} selectedIds={exportDialog.selectedIds} onClose={() => setExportDialog(null)} />}
   </div>;
 }

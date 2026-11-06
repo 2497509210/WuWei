@@ -80,6 +80,15 @@ jobs:
           node tests/e2e/photo-save.mjs
           node tests/e2e/photo-drafts.mjs
           node tests/e2e/navigation.mjs
+      - name: Verify field conflicts and daily workflows in Chromium
+        if: runner.os == 'Linux'
+        env:
+          WUWEI_TEST_PYTHON: python
+          WUWEI_E2E_BASE_PATH: /wuwei
+        run: |
+          node tests/e2e/form-guards.mjs
+          node tests/e2e/field-photo.mjs
+          node tests/e2e/daily-efficiency.mjs
       - name: Retain browser failure evidence
         if: failure() && runner.os == 'Linux'
         uses: actions/upload-artifact@v4

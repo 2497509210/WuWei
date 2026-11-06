@@ -1,0 +1,18 @@
+.item-photo-open{display:block;position:relative;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;border-radius:14px;overflow:hidden}
+.item-photo-open img{display:block}
+.item-photo-open span{position:absolute;right:10px;bottom:10px;background:#fffef4ed;color:#453f32;padding:5px 9px;border-radius:8px;font-size:12px}
+.photo-viewer{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:#171a1e;color:#fff;overflow:hidden}
+.photo-viewer[open]{display:flex;flex-direction:column}
+.photo-viewer::backdrop{background:#171a1e}
+.photo-viewer-toolbar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));padding-top:max(12px,env(safe-area-inset-top));background:#25282d}
+.photo-viewer-toolbar strong{font-size:16px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.photo-viewer-toolbar>div{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.photo-viewer button{min-width:42px;min-height:42px;padding:6px 10px;border:1px solid #737982;border-radius:8px;background:#333840;color:#fff;font:inherit;cursor:pointer}
+.photo-viewer button:disabled{opacity:.4;cursor:default}
+.photo-viewer output{min-width:44px;font-size:13px;text-align:center;font-variant-numeric:tabular-nums}
+.photo-viewer-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;user-select:none;cursor:grab}
+.photo-viewer-stage:active{cursor:grabbing}
+.photo-viewer-stage img{width:100%;height:100%;object-fit:contain;flex-shrink:0;pointer-events:none;will-change:transform;transform-origin:center}
+.photo-viewer-status{position:absolute;z-index:1;text-align:center;max-width:90%;line-height:1.7}
+.photo-viewer-help{margin:0;padding:10px 16px max(12px,env(safe-area-inset-bottom));text-align:center;font-size:12px;color:#c7cbd2;line-height:1.5}
+@media(max-width:600px){.photo-viewer-toolbar{align-items:stretch;flex-direction:column;gap:10px}.photo-viewer-toolbar>div{justify-content:center}.photo-viewer-toolbar strong{text-align:center}}

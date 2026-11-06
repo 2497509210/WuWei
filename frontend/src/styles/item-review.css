@@ -1,0 +1,7 @@
+.item-field-conflict{border:1px solid #d7b8a2!important;border-radius:10px;padding:12px!important;margin:12px 0!important;display:grid;gap:10px}
+.item-field-conflict legend{font-weight:600;padding:0 6px}
+.inventory-form .item-field-conflict label{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:start;color:inherit;cursor:pointer}
+.inventory-form .item-field-conflict input{width:16px;height:16px;margin:3px 0;padding:0;accent-color:var(--accent)}
+.item-field-conflict small{display:block;margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;max-height:150px;overflow:auto}
+.inventory-error.item-edit-review{display:block}
+.item-edit-review>button{margin-top:4px}

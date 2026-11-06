@@ -10,6 +10,7 @@ frontend/dist/
 **/pytest-of-*/
 **/*.egg-info/
 **/.vite/
+**/*.tsbuildinfo
 .idea/
 .vscode/
 

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, registerItems, type MeResponse } from "../api/client";
+import { ApiError, registerItems, type Item, type MeResponse } from "../api/client";
 import { forgetLocation, rememberLocation } from "../lib/recentLocation";
 import { LocationPicker } from "./LocationPicker";
 import { Modal } from "./Modal";
 
-export function RegisterDialog({ me, initialCompartmentId = "", onClose, onSaved }: {
-  me: MeResponse; initialCompartmentId?: string; onClose: () => void; onSaved: (count: number) => void;
+export function RegisterDialog({ me, initialCompartmentId = "", onClose, onSaved, onRegistered }: {
+  me: MeResponse; initialCompartmentId?: string; onClose: () => void; onSaved: (count: number) => void; onRegistered?: (items: Item[]) => void;
 }) {
   const [location, setLocation] = useState("");
   const [names, setNames] = useState("");
@@ -28,7 +28,7 @@ export function RegisterDialog({ me, initialCompartmentId = "", onClose, onSaved
     try {
       const result = await registerItems(location, entries, operation.current.id);
       if (owner !== generation.current) return;
-      rememberLocation(me, location); onSaved(result.items.length);
+      rememberLocation(me, location); onRegistered?.(result.items); onSaved(result.items.length);
     } catch (error) {
       if (owner !== generation.current) return;
       if (error instanceof ApiError && error.code === "compartment_not_found") { forgetLocation(me, location); setLocation(""); }
@@ -39,7 +39,7 @@ export function RegisterDialog({ me, initialCompartmentId = "", onClose, onSaved
   return <Modal title="一起记在这个位置" onClose={onClose} busy={busy} dirty={Boolean(names || (location && location !== initialCompartmentId))}><form className="inventory-form" onSubmit={event => { event.preventDefault(); void save(); }}>
     <p className="inventory-muted">选一次位置，登记多件物品；也可以先记成一组。</p>
     <fieldset disabled={busy}>
-      <LocationPicker value={location} onChange={setLocation} initialCompartmentId={initialCompartmentId} onInvalidInitial={id => forgetLocation(me, id)} />
+      <LocationPicker me={me} value={location} onChange={setLocation} initialCompartmentId={initialCompartmentId} onInvalidInitial={id => forgetLocation(me, id)} />
       <label>物品名称，每行一件或一组<textarea rows={5} value={names} onChange={event => setNames(event.target.value)} placeholder={"护照\n备用线材一组\n露营工具一箱"} required /></label>
     </fieldset>
     {error && <p className="inventory-error" role="alert">{error}</p>}
