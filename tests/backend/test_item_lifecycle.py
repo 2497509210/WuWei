@@ -226,20 +226,20 @@ def test_history_failure_rolls_back_business_change_and_new_photo(setup_client, 
     if operation == "restore":
         item = archive(setup_client, item).json()["item"]
     reject_events(setup_client, operation)
-    with pytest.raises(sqlite3.IntegrityError):
-        if operation == "archive":
-            archive(setup_client, item)
-        elif operation == "restore":
-            setup_client.post(url + "/restore", json={"expected_version": 2, "compartment_id": source["id"]})
-        elif operation == "update":
-            setup_client.patch(url, json={"expected_version": 1, "name": "should rollback"})
-        elif operation == "confirm":
-            setup_client.post(url + "/confirm", json={"expected_version": 1})
-        elif operation == "photo":
-            setup_client.post(url + "/photo", data={"expected_version": "1"}, files={"image": ("photo.png", png(), "image/png")})
-        else:
-            target = create_room(setup_client, name="书房")
-            setup_client.patch(f"/api/containers/{container['id']}", json={"room_id": target["id"]})
+    if operation == "archive":
+        response = archive(setup_client, item)
+    elif operation == "restore":
+        response = setup_client.post(url + "/restore", json={"expected_version": 2, "compartment_id": source["id"]})
+    elif operation == "update":
+        response = setup_client.patch(url, json={"expected_version": 1, "name": "should rollback"})
+    elif operation == "confirm":
+        response = setup_client.post(url + "/confirm", json={"expected_version": 1})
+    elif operation == "photo":
+        response = setup_client.post(url + "/photo", data={"expected_version": "1"}, files={"image": ("photo.png", png(), "image/png")})
+    else:
+        target = create_room(setup_client, name="书房")
+        response = setup_client.patch(f"/api/containers/{container['id']}", json={"room_id": target["id"]})
+    assert response.status_code == 500 and response.json()["error"]["code"] == "internal_error"
     current = setup_client.get(url).json()["item"]
     assert current["version"] == item["version"]
     assert current["name"] == "护照" and current["archived_at"] == item["archived_at"]

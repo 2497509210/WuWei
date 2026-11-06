@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { quickRegisterItem } from "../../frontend/src/api/mobile";
+import { quickRegisterItem, replaceItemPhoto } from "../../frontend/src/api/mobile";
 import { ApiError } from "../../frontend/src/api/client";
 import { FakeXHR, installFakeXHR } from "./helpers/fake-xhr";
 
@@ -22,6 +22,23 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("XHR quick registration transport", () => {
+  it("correlates each replacement attempt independently while preserving the operation token", async () => {
+    const photo = { itemId: "camera", expectedVersion: 2, operationId: "replace-once", image: new File(["bytes"], "photo.jpg") };
+    const first = replaceItemPhoto(photo).catch(error => error);
+    const request = FakeXHR.latest;
+    expect(request.headers["x-request-id"]).toMatch(/^[0-9a-f]{32}$/);
+    request.fail();
+    const failure = await first;
+    expect(failure.requestId).toBe(request.headers["x-request-id"]);
+    expect(failure.message).toContain(failure.requestId);
+    const retry = replaceItemPhoto(photo).catch(error => error);
+    const second = FakeXHR.latest;
+    expect(second.headers["x-request-id"]).not.toBe(request.headers["x-request-id"]);
+    expect((second.body as FormData).get("operation_id")).toBe("replace-once");
+    second.responseHeaders["x-request-id"] = "abcdefabcdefabcdefabcdefabcdefab";
+    second.respond(503, { error: { code: "unavailable", message: "服务器繁忙" } });
+    expect((await retry).requestId).toBe("abcdefabcdefabcdefabcdefabcdefab");
+  });
   it("sends the original multipart payload with credentials and accepts a validated item", async () => {
     const image = new File(["photo-bytes"], "camera.jpg", { type: "image/jpeg" });
     const result = upload({ ...input, image });
@@ -156,7 +173,7 @@ describe("XHR quick registration transport", () => {
     const request = FakeXHR.latest;
     expect(request).toBeDefined();
     request.respond(409, { error: { code: "operation_conflict", message: "内容已改变", current: item } });
-    expect(await result).toMatchObject({ status: 409, code: "operation_conflict", message: "内容已改变", current: item });
+    expect(await result).toMatchObject({ status: 409, code: "operation_conflict", message: expect.stringContaining("内容已改变"), current: item });
   });
 
   it.each(["<html>proxy</html>", "{}", '{"item":null}', '{"item":{"id":"i"}}'])("does not claim success for malformed response %s", async body => {

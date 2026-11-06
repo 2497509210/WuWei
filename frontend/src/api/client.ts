@@ -87,15 +87,24 @@ export type RoomDetail = {
 
 export type ContainerWriteResponse = { container: Container; rooms?: RoomSummary[] };
 
+export function createRequestId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
   current?: Item;
   currentContainer?: Container;
   currentRoom?: RoomSummary;
+  requestId?: string;
 
-  constructor(status: number, code: string, message: string, current?: Item | Container | RoomSummary) {
-    super(message);
+  constructor(status: number, code: string, message: string, current?: Item | Container | RoomSummary, requestId?: string) {
+    const safeId = requestId && /^[0-9a-f]{32}$/.test(requestId) ? requestId : undefined;
+    super(safeId ? `${message}（诊断编号：${safeId}）` : message);
+    this.requestId = safeId;
     this.name = "ApiError";
     this.status = status;
     this.code = code;
@@ -113,6 +122,8 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   const write = !["GET", "HEAD", "OPTIONS"].includes((options.method ?? "GET").toUpperCase());
   const limit = timeoutMs ?? (write ? 30_000 : 15_000);
   const headers = new Headers(options.headers);
+  let requestId = createRequestId();
+  headers.set("X-Request-ID", requestId);
   if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -125,7 +136,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
   const timer = limit > 0 ? globalThis.setTimeout(() => {
     rejectStopped(new ApiError(0, "request_timeout", write
       ? "请求超时，保存结果尚未确认，请先刷新核对后再尝试"
-      : "读取超时，请检查连接后重试"));
+      : "读取超时，请检查连接后重试", undefined, requestId));
     controller.abort();
   }, limit) : undefined;
   try {
@@ -138,18 +149,20 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
       // Notify from headers so a hung or malformed 401 body cannot keep expired
       // private UI open. Aborted and previous-generation responses are ignored.
       notifyUnauthorized(owner, path, response.status);
+      const responseId = response.headers?.get("X-Request-ID");
+      if (responseId && /^[0-9a-f]{32}$/.test(responseId)) requestId = responseId;
       if (response.status === 204) return undefined as T;
       const body = await response.json().catch(() => null);
       if (controller.signal.aborted) throw new DOMException("请求已取消", "AbortError");
       if (!response.ok) {
         const code = typeof body?.error?.code === "string" ? body.error.code : "request_failed";
         const message = typeof body?.error?.message === "string" ? body.error.message : `请求失败（${response.status}）`;
-        throw new ApiError(response.status, code, message, body?.error?.current_room ?? body?.error?.current);
+        throw new ApiError(response.status, code, message, body?.error?.current_room ?? body?.error?.current, requestId);
       }
       if (body === null || typeof body !== "object") {
         throw new ApiError(response.status, "invalid_response", write
           ? "服务器返回了无效响应，保存结果尚未确认，请先刷新核对后再尝试"
-          : "服务器返回了无效响应，请稍后重试");
+          : "服务器返回了无效响应，请稍后重试", undefined, requestId);
       }
       return body as T;
     })(), stopped]);
@@ -157,7 +170,7 @@ export async function request<T>(path: string, init: ApiRequestInit = {}): Promi
     if (error instanceof ApiError || (typeof error === "object" && error !== null && "name" in error && error.name === "AbortError")) throw error;
     throw new ApiError(0, "network_error", write
       ? "网络异常，保存结果尚未确认，请先刷新核对后再尝试"
-      : "网络连接失败，请检查连接后重试");
+      : "网络连接失败，请检查连接后重试", undefined, requestId);
   } finally {
     globalThis.clearTimeout(timer);
     signal?.removeEventListener("abort", cancel);

@@ -55,7 +55,7 @@ describe("mobile size sheet save completion", () => {
     fireEvent.click(screen.getByRole("button", { name: "完成" })); await tick();
     await finish(false);
     expect(screen.queryByRole("heading", { name: "调整尺寸" })).not.toBeNull();
-    expect(screen.queryByText("网络中断，请重试")).not.toBeNull();
+    expect(screen.queryByText("网络中断，请重试", { exact: false })).not.toBeNull();
     expect(screen.getByLabelText("已保存宽度").textContent).toBe("180");
   });
 

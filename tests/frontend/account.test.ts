@@ -47,7 +47,7 @@ describe("account settings",()=>{
     };
     render(createElement(SettingsHarness));
     fireEvent.change(screen.getByLabelText("昵称"),{target:{value:" 新的昵称 "}});
-    fireEvent.click(screen.getByRole("button",{name:"保存昵称"}));await screen.findByText("昵称保存失败");
+    fireEvent.click(screen.getByRole("button",{name:"保存昵称"}));await screen.findByText("昵称保存失败", { exact: false });
     expect((screen.getByLabelText("昵称") as HTMLInputElement).value).toBe(" 新的昵称 ");
     fireEvent.click(screen.getByRole("button",{name:"保存昵称"}));
     await waitFor(()=>expect(screen.getByLabelText("当前昵称").textContent).toBe("新的昵称"));
@@ -68,7 +68,7 @@ describe("account settings",()=>{
     fireEvent.change(screen.getByLabelText("确认新密码"),{target:{value:"different"}});
     fireEvent.click(screen.getByRole("button",{name:"修改密码并退出"}));await screen.findByText("两次新密码不一致");
     fireEvent.change(screen.getByLabelText("确认新密码"),{target:{value:"new-password"}});
-    fireEvent.click(screen.getByRole("button",{name:"修改密码并退出"}));await screen.findByText("当前密码不正确");
+    fireEvent.click(screen.getByRole("button",{name:"修改密码并退出"}));await screen.findByText("当前密码不正确", { exact: false });
     expect((screen.getByLabelText("新密码") as HTMLInputElement).value).toBe("new-password");
     fireEvent.click(screen.getByRole("button",{name:"修改密码并退出"}));
     await screen.findByText("密码已修改，请重新登录");
@@ -114,7 +114,7 @@ describe("account settings",()=>{
     render(createElement(SettingsHarness));
     fireEvent.click(await screen.findByRole("button",{name:"移除成员 小明"}));
     expect(screen.queryByRole("button",{name:"移除成员 家长"})).toBeNull();
-    fireEvent.click(screen.getByRole("button",{name:"确认移除成员"}));await screen.findByText("移除失败");
+    fireEvent.click(screen.getByRole("button",{name:"确认移除成员"}));await screen.findByText("移除失败", { exact: false });
     fireEvent.click(screen.getByRole("button",{name:"确认移除成员"}));
     await waitFor(()=>expect(screen.queryByRole("button",{name:"移除成员 小明"})).toBeNull());
   });
@@ -233,7 +233,7 @@ describe("joining a household",()=>{
     render(createElement(Joining));fillJoin("short","short");
     fireEvent.submit(screen.getByRole("button",{name:"加入家庭"}).closest("form")!);await screen.findByText("密码需为 8–200 个字符");
     fillJoin("password123","different");fireEvent.submit(screen.getByRole("button",{name:"加入家庭"}).closest("form")!);await screen.findByText("两次密码不一致");
-    fillJoin();fireEvent.click(screen.getByRole("button",{name:"加入家庭"}));await screen.findByText("邀请码无效或已过期");
+    fillJoin();fireEvent.click(screen.getByRole("button",{name:"加入家庭"}));await screen.findByText("邀请码无效或已过期", { exact: false });
     expect((screen.getByLabelText("邀请码") as HTMLInputElement).value).toBe(" invited-code ");
     fireEvent.click(screen.getByRole("button",{name:"加入家庭"}));await screen.findByText("已进入家庭");
   });

@@ -136,7 +136,7 @@ describe("workspace saves", () => {
     take("/containers/cabinet", "PATCH").respond({ error: { code: "save_failed", message: "保存失败" } }, 500);
     expect(await save).toBe(false);
     expect(useWorkspace.getState().room?.containers[0].x_cm).toBe(100);
-    expect(useWorkspace.getState().error).toBe("保存失败");
+    expect(useWorkspace.getState().error).toContain("保存失败");
     expect(useWorkspace.getState().saveStatus).toBe("error");
     const retry = useWorkspace.getState().retryLastMutation(); await flush();
     take("/containers/cabinet", "PATCH").respond({ container: { ...container(), x_cm: 220, z_cm: 140, version: 2 } });
@@ -189,7 +189,7 @@ describe("workspace saves", () => {
     await enter("a"); const refresh = useWorkspace.getState().refreshRoom();
     take("/rooms/a").respond({ error: { code: "offline", message: "连接失败" } }, 503);
     await refresh;
-    expect(useWorkspace.getState().error).toBe("连接失败");
+    expect(useWorkspace.getState().error).toContain("连接失败");
     useWorkspace.getState().dismissError();
     expect(useWorkspace.getState().error).toBe("");
   });

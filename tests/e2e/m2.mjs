@@ -92,6 +92,7 @@ try {
   await page.getByText("资料已保存",{exact:true}).waitFor();
   const photo=await page.screenshot();
   await page.getByLabel("物品照片",{exact:true}).setInputFiles({name:"reference.png",mimeType:"image/png",buffer:photo});
+  await page.getByRole("button",{name:"保存照片",exact:true}).click();
   await page.getByText("照片已保存",{exact:true}).waitFor();
   assert.ok(await page.getByRole("img",{name:"护照",exact:true}).evaluate(image=>image.complete && image.naturalWidth>0));
   check("照片经上传、鉴权接口与浏览器读取成功");
@@ -151,6 +152,11 @@ try {
   check("保存失败保留登记草稿",await page.getByLabel("物品名称，每行一件或一组").inputValue()==="失败重试样品");
   await page.unroute("**/api/items/batch",failBatch);
   await page.getByRole("button",{name:"保存登记",exact:true}).click();
+  await page.getByRole("dialog",{name:"一起记在这个位置",exact:true}).waitFor({state:"hidden"});
+  // Returning from space now preserves the former shelf/search. Read the new
+  // record in its intended scope rather than assuming navigation reset it.
+  if(await page.getByRole("button",{name:"查看全部",exact:true}).count())await page.getByRole("button",{name:"查看全部",exact:true}).click();
+  await page.getByRole("searchbox").fill("");
   await page.getByRole("button",{name:"查看失败重试样品",exact:true}).waitFor();
   await page.reload();
   await page.getByRole("button",{name:"查看失败重试样品",exact:true}).waitFor();

@@ -53,7 +53,7 @@ describe("location entry", () => {
   it("does not offer actions for inaccessible containers and permits a fresh retry", async () => {
     handler = () => response({ error: { code: "container_not_found", message: "位置不存在或无权访问" } }, 404);
     show("cp0");
-    await screen.findByText("位置不存在或无权访问");
+    await screen.findByText("位置不存在或无权访问", { exact: false });
     expect(screen.queryByRole("button", { name: "登记到此隔层" })).toBeNull();
     handler = () => response({ room, container: cabinet });
     fireEvent.click(screen.getByRole("button", { name: "重新加载位置" }));

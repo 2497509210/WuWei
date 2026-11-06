@@ -71,6 +71,22 @@ jobs:
           WUWEI_TEST_PYTHON: python
           WUWEI_E2E_BASE_PATH: /wuwei
         run: node tests/e2e/usability.mjs
+      - name: Verify photo retries, drafts and navigation in Chromium
+        if: runner.os == 'Linux'
+        env:
+          WUWEI_TEST_PYTHON: python
+          WUWEI_E2E_BASE_PATH: /wuwei
+        run: |
+          node tests/e2e/photo-save.mjs
+          node tests/e2e/photo-drafts.mjs
+          node tests/e2e/navigation.mjs
+      - name: Retain browser failure evidence
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-evidence
+          path: tests/e2e/shots/
+          retention-days: 7
       - name: Check shell syntax
         shell: bash
-        run: bash -n scripts/remote-install.sh scripts/preflight.sh scripts/smoke.sh scripts/wuwei-admin
+        run: bash -n scripts/remote-install.sh scripts/remote-deploy.sh scripts/preflight.sh scripts/smoke.sh scripts/wuwei-admin

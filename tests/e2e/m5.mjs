@@ -46,7 +46,7 @@ try{
   const failOnce=route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:{message:"模拟断网，请重试"}})});
   await page.route("**/api/items/quick",failOnce);
   await quick.getByRole("button",{name:"保存物品",exact:true}).click();
-  await quick.getByText("模拟断网，请重试",{exact:true}).waitFor();
+  await quick.getByText("模拟断网，请重试",{exact:false}).waitFor();
   check("失败保留照片与名称",await quick.getByLabel("物品名称",{exact:true}).inputValue()==="备用相机"&&await quick.getByRole("img",{name:"待登记照片预览",exact:true}).isVisible());
   await page.unroute("**/api/items/quick",failOnce);
   await quick.getByRole("button",{name:"保存物品",exact:true}).click();await quick.waitFor({state:"hidden"});

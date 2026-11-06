@@ -53,7 +53,7 @@ describe("compartment custom naming",()=>{
     const dialog=await show();failNext=true;
     fireEvent.change(dialog.getByLabelText("隔层名称"),{target:{value:"常用药品"}});
     fireEvent.click(dialog.getByRole("button",{name:"保存名称"}));
-    await dialog.findByText("网络中断，请重试");
+    await dialog.findByText("网络中断，请重试", { exact: false });
     expect((dialog.getByLabelText("隔层名称") as HTMLInputElement).value).toBe("常用药品");
     expect(cabinet.compartments[0].name).toBe("顶层");
     fireEvent.click(dialog.getByRole("button",{name:"保存名称"}));

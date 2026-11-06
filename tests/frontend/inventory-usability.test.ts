@@ -134,7 +134,7 @@ describe("inventory everyday controls",()=>{
     items=[];let cleared=0;let attempts=0;
     handler=(url,init)=>url.pathname.includes("/locations/compartments/")&&++attempts===1?json({error:{message:"无法核对隔层位置"}},503):normal(url,init);
     render(createElement(InventoryPage,{...props(),initialCompartment:"shelf",onClearCompartment:()=>{cleared++;}}));
-    await screen.findByRole("option",{name:"书房"});await screen.findByText("无法核对隔层位置");
+    await screen.findByRole("option",{name:"书房"});await screen.findByText("无法核对隔层位置", { exact: false });
     fireEvent.change(screen.getByRole("combobox",{name:"筛选房间"}),{target:{value:"study"}});
     expect(cleared).toBe(0);
     fireEvent.click(screen.getByRole("button",{name:"重试隔层位置"}));
@@ -183,7 +183,7 @@ describe("inventory paging and photos",()=>{
   it("keeps failed-page rows untrusted until that page loads successfully",async()=>{
     handler=(url,init)=>url.searchParams.get("page")==="2"?json({error:{message:"下一页读取失败"}},503):normal(url,init);
     await show();fireEvent.click(screen.getByRole("button",{name:"批量整理"}));fireEvent.click(screen.getByRole("checkbox",{name:"选择物品1",exact:true}));
-    fireEvent.click(screen.getByRole("button",{name:"下一页"}));await screen.findByText("下一页读取失败");
+    fireEvent.click(screen.getByRole("button",{name:"下一页"}));await screen.findByText("下一页读取失败", { exact: false });
     expect(screen.getByText("已选 0 条")).toBeTruthy();
     expect((screen.getByRole("checkbox",{name:"选择物品1",exact:true}) as HTMLInputElement).disabled).toBe(true);
     expect(screen.queryByText("第 41–80 条，共 81 条")).toBeNull();

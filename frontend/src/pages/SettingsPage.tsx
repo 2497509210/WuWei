@@ -44,12 +44,12 @@ function useAccountList<T>(load: (signal: AbortSignal) => Promise<T[]>, identity
 type Confirmation = { kind: "device"; device: DeviceGroup } | { kind: "member"; member: HouseholdMember } | { kind: "all" } | null;
 function when(value: string | null): string { return value ? new Date(value).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "未记录"; }
 
-export function SettingsPage(props: { me: MeResponse; onMeChanged: (user: User) => void; onSessionEnded: (message: string) => void; onBack: () => void }) {
+export function SettingsPage(props: { me: MeResponse; onMeChanged: (user: User) => void; onSessionEnded: (message: string) => void; onBack: () => void; returnLabel?: string }) {
   // A change of identity discards private drafts, invitation codes, and in-flight responses.
   return <AccountSettings key={props.me.user.id} {...props} />;
 }
 
-function AccountSettings({ me, onMeChanged, onSessionEnded, onBack }: Parameters<typeof SettingsPage>[0]) {
+function AccountSettings({ me, onMeChanged, onSessionEnded, onBack, returnLabel = "返回空间" }: Parameters<typeof SettingsPage>[0]) {
   const [displayName, setDisplayName] = useState(me.user.display_name);
   const nameDirty = useRef(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -169,7 +169,7 @@ function AccountSettings({ me, onMeChanged, onSessionEnded, onBack }: Parameters
   }
 
   return <div className="account-page">
-    <header className="account-header"><Brand compact /><span>{me.household.name}</span><button type="button" disabled={busy} onClick={onBack}>返回空间</button></header>
+    <header className="account-header"><Brand compact /><span>{me.household.name}</span><button type="button" disabled={busy} onClick={onBack}>{returnLabel}</button></header>
     <main className="account-main"><div className="account-intro"><span className="eyebrow">ACCOUNT & HOME</span><h1>账号与家庭</h1><p>维护个人资料、登录设备与家人的访问权限。</p></div>
       {error && <div className="account-error" role="alert">{error}</div>}
       {notice && <p className="account-success" role="status">{notice}</p>}

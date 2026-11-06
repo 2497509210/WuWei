@@ -89,7 +89,7 @@ describe("verified location defaults",()=>{
   it("clears an invalid recent shelf instead of submitting its stale ID",async()=>{
     render(createElement(InventoryPage,props()));await registerOnce();
     handler=url=>url.pathname.includes("/locations/compartments/")?json({error:{code:"compartment_not_found",message:"隔层已不存在"}},404):normal(url);
-    fireEvent.click(screen.getByRole("button",{name:"登记物品"}));await screen.findByText("隔层已不存在");
+    fireEvent.click(screen.getByRole("button",{name:"登记物品"}));await screen.findByText(/隔层已不存在/);
     fireEvent.change(screen.getByLabelText("物品名称，每行一件或一组"),{target:{value:"钥匙"}});
     fireEvent.click(screen.getByRole("button",{name:"保存登记"}));
     await screen.findByText("请选择隔层，并填写至少一件物品");
@@ -123,7 +123,7 @@ describe("verified location defaults",()=>{
     const view=render(createElement(InventoryPage,props()));await registerOnce();
     handler=url=>url.pathname.endsWith("/locations/compartments/deleted")?json({error:{code:"compartment_not_found",message:"链接位置已删除"}},404):normal(url);
     view.rerender(createElement(InventoryPage,{...props(),initialCompartment:"deleted",initialAction:"register"}));
-    await within(screen.getByRole("dialog",{name:"一起记在这个位置"})).findByText("链接位置已删除");
+    await within(screen.getByRole("dialog",{name:"一起记在这个位置"})).findByText(/链接位置已删除/);
     expect((screen.getByLabelText("房间") as HTMLSelectElement).value).toBe("");
     expect(screen.queryByRole("button",{name:"证件层"})).toBeNull();
   });
@@ -186,7 +186,7 @@ describe("camera registration",()=>{
     fireEvent.change(screen.getByLabelText("拍摄或选择照片"),{target:{files:[photoFile("large.png",1024*1024)]}});
     await screen.findByRole("img",{name:"待登记照片预览"});
     expect(screen.queryByText("原照片 1.00 MB · 待上传 100 KB（已压缩）")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("请重试上传");
+    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText(/请重试上传/);
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("已登记「相机」");
     expect(decodes).toBe(1);
     expect((submitted[0].get("image") as File).size).toBe(102400);
@@ -233,7 +233,7 @@ describe("camera registration",()=>{
     expect(screen.getByRole("progressbar",{name:"上传进度"}).hasAttribute("aria-valuenow")).toBe(false);
     expect(screen.getByText("已发送 2 KB / 总量未知")).toBeTruthy();
     fireEvent.click(screen.getByRole("button",{name:"停止等待"}));
-    await screen.findByText("尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。");
+    await screen.findByText(/尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。/);
   });
   // Previous request progress cannot repaint a newer retry's byte count or phase.
   it("ignores late progress from a stopped upload while retrying",async()=>{
@@ -323,7 +323,7 @@ describe("camera registration",()=>{
     await screen.findByRole("img",{name:"待登记照片预览"});
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));
     fireEvent.click(screen.getByRole("button",{name:"停止等待"}));
-    await screen.findByText("尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。");
+    await screen.findByText(/尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。/);
     expect(requests[0].signal?.aborted).toBe(true);
     expect(screen.getByRole("img",{name:"待登记照片预览"})).toBeTruthy();
     expect((screen.getByRole("button",{name:"关闭对话框"}) as HTMLButtonElement).disabled).toBe(false);
@@ -347,7 +347,7 @@ describe("camera registration",()=>{
     try {
       fireEvent.click(screen.getByRole("button",{name:"保存物品"}));
       await act(async()=>{await vi.advanceTimersByTimeAsync(120_000);});
-      expect(screen.queryByText("尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。")).not.toBeNull();
+      expect(screen.queryByText(/尚未确认保存结果，请保持内容不变后重试，将核对同一次登记，避免重复创建。/)).not.toBeNull();
       expect((screen.getByRole("button",{name:"保存物品"}) as HTMLButtonElement).disabled).toBe(false);
     } finally {vi.useRealTimers();}
   });
@@ -378,7 +378,7 @@ describe("camera registration",()=>{
     fireEvent.change(photo,{target:{files:[photoFile()]}});
     await screen.findByRole("img",{name:"待登记照片预览"});
     fireEvent.change(screen.getByLabelText("物品名称"),{target:{value:" 相机 "}});await chooseLocation();
-    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("上传失败，请重试");
+    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText(/上传失败，请重试/);
     expect((screen.getByLabelText("物品名称") as HTMLInputElement).value).toBe(" 相机 ");
     expect(screen.getByRole("img",{name:"待登记照片预览"})).toBeTruthy();
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("已登记「相机」");
@@ -396,7 +396,7 @@ describe("camera registration",()=>{
     fireEvent.change(screen.getByLabelText("物品名称"),{target:{value:"相机"}});
     fireEvent.change(screen.getByLabelText("拍摄或选择照片"),{target:{files:[photoFile("same.png",1200,1)]}});
     await screen.findByRole("img",{name:"待登记照片预览"});
-    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText("临时失败");
+    fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await screen.findByText(/临时失败/);
     fireEvent.change(screen.getByLabelText("拍摄或选择照片"),{target:{files:[photoFile("same.png",1200,2)]}});
     await waitFor(()=>expect(screen.queryByText("正在处理照片…")).toBeNull());
     fireEvent.click(screen.getByRole("button",{name:"保存物品"}));await waitFor(()=>expect(ids.length).toBe(2));

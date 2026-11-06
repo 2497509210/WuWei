@@ -230,8 +230,8 @@ def test_invite_redemption_and_user_creation_roll_back_together(setup_client):
     with db(setup_client) as connection:
         connection.execute("CREATE TRIGGER reject_member BEFORE INSERT ON users WHEN NEW.role='member' BEGIN SELECT RAISE(ABORT, 'reject member'); END")
     browser = TestClient(setup_client.app)
-    with pytest.raises(sqlite3.IntegrityError):
-        browser.post("/api/auth/join", json=join_payload(invitation["code"]))
+    response = browser.post("/api/auth/join", json=join_payload(invitation["code"]))
+    assert response.status_code == 500 and response.json()["error"]["code"] == "internal_error"
     with db(setup_client) as connection:
         assert connection.execute("SELECT used_at FROM household_invites WHERE id=?", (invitation["invite"]["id"],)).fetchone()[0] is None
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1

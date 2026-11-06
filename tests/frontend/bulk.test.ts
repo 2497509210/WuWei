@@ -114,7 +114,7 @@ describe("bulk confirmation and recovery",()=>{
     const dialog=await screen.findByRole("dialog",{name:"批量归档"});
     expect(within(dialog).getByText("护照")).toBeTruthy();expect(within(dialog).getByText("数量 2")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"暂时不用"}});
-    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("暂时无法归档");
+    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("暂时无法归档", { exact: false });
     expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("暂时不用");
     fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("已处理 2 条，实际更改 2 条");
     expect(requests[0]).toEqual(requests[1]);expect(requests[1].reason).toBe("暂时不用");
@@ -123,7 +123,7 @@ describe("bulk confirmation and recovery",()=>{
   it("requires refreshing and reselecting after a version conflict",async()=>{
     handler=(url)=>url.pathname.endsWith("/actions/bulk")?json({error:{code:"bulk_conflict",message:"记录已变化，请刷新重新选择"}},409):normal(url);
     render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
-    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("记录已变化，请刷新重新选择");
+    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("记录已变化，请刷新重新选择", { exact: false });
     expect((screen.getByRole("button",{name:"确认归档"}) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button",{name:"刷新并重新选择"}));
     await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
@@ -200,7 +200,7 @@ describe("bulk confirmation and recovery",()=>{
       }return normal(url);
     };
     render(createElement(InventoryPage,props()));await enter();select("护照");fireEvent.click(screen.getByRole("button",{name:"批量归档"}));
-    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("再试一次");
+    fireEvent.click(screen.getByRole("button",{name:"确认归档"}));await screen.findByText("再试一次", { exact: false });
     fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"新的原因"}});
     const form=screen.getByRole("button",{name:"确认归档"}).closest("form")!;
     act(()=>{fireEvent.submit(form);fireEvent.submit(form);});

@@ -14,6 +14,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from .config import Settings
 from .db import connect, init_db
+from .diagnostics import RequestDiagnostics
 from .routers import accounts, auth, bulk_items, compartments, containers, exports, health, items, rooms
 from .security import LoginLimiter, origin_allowed
 
@@ -177,6 +178,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return index_response()
 
+    app.add_middleware(RequestDiagnostics)
     return app
 
 

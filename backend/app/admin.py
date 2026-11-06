@@ -1,4 +1,4 @@
-"""Offline account recovery. Passwords are entered interactively, never as arguments."""
+"""Local account recovery and derived thumbnail maintenance."""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +10,7 @@ import warnings
 
 from .security import hash_password
 from .session import revoke_all_sessions
+from .services.cache_cleanup import clean_thumbnails
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,7 +19,13 @@ def main(argv: list[str] | None = None) -> int:
     reset = commands.add_parser("reset-password", help="Set a new password and revoke every login for one active user")
     reset.add_argument("--data-dir", type=Path, required=True)
     reset.add_argument("--username", required=True)
+    clean = commands.add_parser("clean-thumbnails", help="Preview old unreferenced thumbnails; --apply removes only listed managed cache files")
+    clean.add_argument("--data-dir", type=Path, required=True)
+    clean.add_argument("--apply", action="store_true")
+    clean.add_argument("--min-age-hours", type=int, default=24)
     args = parser.parse_args(argv)
+    if args.command == "clean-thumbnails":
+        return clean_thumbnails(args.data_dir, args.apply, args.min_age_hours)
     database = args.data_dir / "wuwei.db"
     connection = None
     try:

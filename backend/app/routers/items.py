@@ -457,6 +457,7 @@ def get_photo(item_id: str, request: Request, variant: Literal["original", "thum
 def upload_photo(
     item_id: str, request: Request, expected_version: Annotated[int, Form(ge=1)],
     image: Annotated[UploadFile, File()], user: dict = Depends(require_user),
+    operation_id: Annotated[str | None, Form(min_length=1, max_length=100)] = None,
 ):
     connection = connect(request.app.state.db_path)
     new_path = None
@@ -466,21 +467,37 @@ def upload_photo(
         row = _find_item(connection, item_id, user["household_id"])
         if not row:
             return _error(404, "item_not_found", "物品不存在")
-        conflict = _check_version(row, expected_version, request)
-        if conflict:
-            return conflict
-        archived = _check_active(row)
-        if archived:
-            return archived
+        previous = connection.execute(
+            "SELECT 1 FROM item_photo_operations WHERE household_id=? AND operation_id=?",
+            (user["household_id"], operation_id),
+        ).fetchone() if operation_id else None
+        if not previous:
+            conflict = _check_version(row, expected_version, request)
+            if conflict:
+                return conflict
+            archived = _check_active(row)
+            if archived:
+                return archived
         try:
             photo = encode_photo(image.file)
         except PhotoValidationError as exc:
             return _error(exc.status, exc.code, str(exc))
+        fingerprint = hashlib.sha256(json.dumps({
+            "item_id": item_id, "expected_version": expected_version, "image_hash": photo.source_hash,
+        }, sort_keys=True).encode("utf-8")).hexdigest()
         connection.execute("BEGIN IMMEDIATE")
         user = require_session(connection, request)
         row = _find_item(connection, item_id, user["household_id"])
         if not row:
             return _error(404, "item_not_found", "物品不存在")
+        previous = connection.execute(
+            "SELECT request_hash FROM item_photo_operations WHERE household_id=? AND operation_id=?",
+            (user["household_id"], operation_id),
+        ).fetchone() if operation_id else None
+        if previous:
+            if previous["request_hash"] != fingerprint:
+                return _error(409, "operation_conflict", "这次换图的重试内容已改变，请重新选择照片")
+            return {"item": _serialize(row, request)}
         conflict = _check_version(row, expected_version, request)
         if conflict:
             return conflict
@@ -497,6 +514,11 @@ def upload_photo(
         record_change(connection, row, updated, "photo", user, {
             "photo": {"before": bool(row["photo_path"]), "after": True},
         })
+        if operation_id:
+            connection.execute(
+                "INSERT INTO item_photo_operations(household_id,operation_id,request_hash,item_id,created_at) VALUES (?,?,?,?,?)",
+                (user["household_id"], operation_id, fingerprint, item_id, now_iso()),
+            )
         result = _serialize(updated, request)
         connection.commit()
         committed = True

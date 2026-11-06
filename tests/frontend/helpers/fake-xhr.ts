@@ -19,12 +19,14 @@ export class FakeXHR extends EventTarget {
   url = "";
   body: Document | XMLHttpRequestBodyInit | null = null;
   headers: Record<string, string> = {};
+  responseHeaders: Record<string, string> = {};
   aborted = false;
   transportSignal = new AbortController();
 
   constructor() { super(); FakeXHR.instances.push(this); }
   open(method: string, url: string | URL) { this.method = method; this.url = String(url); this.readyState = 1; }
   setRequestHeader(name: string, value: string) { this.headers[name.toLowerCase()] = value; }
+  getResponseHeader(name: string) { return this.responseHeaders[name.toLowerCase()] ?? null; }
   send(body: Document | XMLHttpRequestBodyInit | null = null) {
     this.body = body;
     FakeXHR.onSend?.(this);

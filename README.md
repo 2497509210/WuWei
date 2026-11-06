@@ -59,6 +59,14 @@
 - SQLite 执行过滤、排序和分页，搜索优先名称完全匹配、名称前缀、名称包含、别名、备注。保留中文单字与字面 `%`、`_`、Unicode 大小写匹配。
 - `GET /api/items` 支持 `page`、`page_size`、`room_id`、`location_status`；有分页参数时返回 `total/page/page_size/has_more`，单页最多 100 条。不传分页参数保留原 API 兼容行为。
 
+## 连续操作与草稿保护
+
+- 找物地址保存搜索、状态、房间、隔层和页码，刷新或分享可恢复范围；从账号、空间定位返回时恢复浏览位置。临时浏览位置按账号与家庭隔离，退出清理；不同账号不能继承应用内历史中的旧搜索。
+- 详情「添加 / 更换照片」先显示本机压缩后的预览和大小，再点击「保存照片」。和拍照登记共用25MiB原图处理、真实上传进度与分阶段期限。取消等待或响应丢失后保留待传图，同内容重试核对同一操作，避免重复照片历史；取消不代表撤销服务器保存。
+- 登记、编辑、移动、归档和待传照片有未保存内容时，关闭、Escape或离开页面会提示。草稿和照片不写入本机持久存储；浏览器刷新提示能力仍取决于浏览器。明确放弃、关闭页面或会话失效后不能恢复未提交草稿。
+- 编辑遇到版本冲突时保留自己的输入，并显示最新资料；点击「核对后继续编辑」后再保存，才使用新版本提交。换图冲突同样要求明确核对，归档记录不能继续替换照片。
+- 请求失败提示可含32位诊断编号。向维护者提供该编号和发生时间即可关联服务器记录，无需发送照片或账户密码。
+
 ## 批量整理与清单导出
 
 以下功能已随 `2026-11-05-m3.4-bulk-export` 上线：
@@ -267,6 +275,16 @@ sudo systemctl list-timers wuwei-backup.timer --all
 
 部署入口 `scripts/deploy.ps1` 从脚本位置确定工作区，使用 SSH 主机别名 `bd-a`，必须显式传入新的 release 版本。只允许干净且已有提交的 Git 工作区；`npm ci` 后构建 `/wuwei/` 前端，并再次确认工作区和提交未变化。发布包携带 `REVISION` 与依赖锁，每个 `/opt/wuwei/releases/<版本>/.venv` 按哈希独立安装，静态预检通过后再切换服务。
 
+发布在服务器后台执行，SSH断开不会停止任务。`Start`绑定版本、提交和包SHA；`Status`只查询，`Resume`使用服务器保留的原包，不要求当前工作区仍是该提交。可用以下命令（替换版本）：
+
+```powershell
+.\scripts\deploy.ps1 -Version '新的版本' -Action Start -WaitSeconds 0
+.\scripts\deploy.ps1 -Version '新的版本' -Action Status -LogLines 40
+.\scripts\deploy.ps1 -Version '新的版本' -Action Resume -WaitSeconds 0
+```
+
+状态和日志存于`/opt/wuwei/deployments/<版本>/`，同版本不同包拒绝覆盖。全局锁避免并发切换；首次激活前固定回滚目标和服务配置，重试不能覆盖它们。下载／解压中断和普通发布失败可恢复；若机器在切换期间硬掉电、候选版本已现役但未完成，或其他版本已接管，则保守拒绝自动覆盖，需要先核验状态。
+
 启动、线上预检、冒烟或发布后备份失败时恢复旧链接、原服务配置和旧依赖环境；已有 release 不会被覆盖。原有发布前后备份继续保留，异机备份和通知暂缓。`scripts/verify-release.py` 可只读比较发布前快照、账号状态、记录数、迁移、完整性、资源哈希与 Git 提交；输出不含账号密码或业务内容。
 
 - `deploy/wuwei.service`：应用监听 `127.0.0.1:8790`，数据默认位于 `/var/lib/wuwei`。
@@ -288,6 +306,19 @@ sudo systemctl list-timers wuwei-backup.timer --all
 ## 权限与安全
 
 所有业务接口要求登录并检查家庭归属。密码使用 Argon2id；登录失败达到限制后暂时锁定，同一用户名的首尾空格不会绕过限流。线上 Cookie 为 HttpOnly、Secure、SameSite=Lax，写接口检查 Origin，并设置 CSP、HSTS、X-Frame-Options 和 nosniff。照片使用鉴权接口，`/media` 不公开挂载。
+
+请求响应提供`X-Request-ID`与`Server-Timing`；结构化请求日志只记录路由模板、方法、状态、编号和服务端耗时，不记录查询词、物品ID、正文、照片或凭据。生产关闭会记录完整URL的默认访问日志。`body_receive_ms`表示应用开始接收至正文完整的时间，`after_body_ms`表示正文完整至响应头的时间；不等同于完整手机网络传输时间。
+
+## 缩略图维护
+
+默认只预览超过24小时、数据库不再引用的受管缩略图，显式`--apply`才删除。已归档物品的照片引用仍保留；原照片、数据库、未知文件和符号链接不清理，无自动清理定时器。
+
+```bash
+sudo -u wuwei wuwei-admin clean-thumbnails --data-dir /var/lib/wuwei
+sudo -u wuwei wuwei-admin clean-thumbnails --data-dir /var/lib/wuwei --apply
+```
+
+本轮范围与验证约定见[连续操作与维护记录](docs/continuity-and-maintenance-2026-11-06.md)。
 
 ## 后续计划
 

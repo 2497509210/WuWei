@@ -59,7 +59,7 @@ describe("item archive and history workflows", () => {
     fireEvent.click(screen.getByRole("button", {name:"归档物品"}));
     fireEvent.change(screen.getByLabelText("归档原因（选填）"), {target:{value:"已换新证"}});
     fireEvent.click(screen.getByRole("button", {name:"确认归档"}));
-    await screen.findByText("归档连接失败");
+    await screen.findByText(/归档连接失败/);
     expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("已换新证");
     fireEvent.click(screen.getByRole("button", {name:"确认归档"}));
     await screen.findByText("物品已归档，可在「已归档」中恢复");
@@ -91,7 +91,7 @@ describe("item archive and history workflows", () => {
     fireEvent.change(screen.getByLabelText("容器"), {target:{value:"c"}});
     fireEvent.click(screen.getByRole("button", {name:"证件层"}));
     fireEvent.click(screen.getByRole("button", {name:"确认恢复"}));
-    await screen.findByText("恢复连接失败");
+    await screen.findByText(/恢复连接失败/);
     expect(screen.getByRole("button", {name:"证件层"}).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", {name:"确认恢复"}));
     await screen.findByText("物品已恢复到所选位置");
@@ -114,7 +114,7 @@ describe("item archive and history workflows", () => {
     expect(within(history).getByText("旧卧室 / 旧抽屉 / 上层")).toBeTruthy();
     expect(within(history).getByText("旧书房 / 旧白柜 / 证件层")).toBeTruthy();
     fireEvent.click(within(history).getByRole("button", {name:"加载更早记录"}));
-    await within(history).findByText("历史加载失败");
+    await within(history).findByText(/历史加载失败/);
     expect(within(history).getByText("小林")).toBeTruthy();
     fireEvent.click(within(history).getByRole("button", {name:"重试历史"}));
     await within(history).findByText("历史信息不完整");
@@ -149,7 +149,7 @@ describe("item archive and history workflows", () => {
       return normal(url);
     };
     show(); await openItem(); fireEvent.click(await screen.findByRole("button", {name:"撤销这次移动"}));
-    await screen.findByText("物品已被更新");
+    await screen.findByText(/物品已被更新/);
     expect(screen.getByText("新的房间 / 新的柜子")).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("button", {name:"撤销这次移动"})).toBeNull());
   });
@@ -181,7 +181,7 @@ describe("item archive and history workflows", () => {
     fireEvent.click(screen.getByRole("button",{name:"归档物品"}));
     fireEvent.change(screen.getByLabelText("归档原因（选填）"),{target:{value:"暂时不用"}});
     fireEvent.click(screen.getByRole("button",{name:"确认归档"}));
-    await screen.findByText("记录已被其他家人更新");
+    await screen.findByText(/记录已被其他家人更新/);
     expect((screen.getByLabelText("归档原因（选填）") as HTMLTextAreaElement).value).toBe("暂时不用");
     expect(screen.getByText("另一位家人补充了备注")).toBeTruthy();
     fireEvent.click(screen.getByRole("button",{name:"确认归档"}));

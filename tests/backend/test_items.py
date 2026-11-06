@@ -101,8 +101,8 @@ def test_move_is_rolled_back_when_event_insert_fails(setup_client):
     item = add_items(setup_client, first["id"]).json()["items"][0]
     with db(setup_client) as connection:
         connection.execute("CREATE TRIGGER reject_event BEFORE INSERT ON item_events BEGIN SELECT RAISE(ABORT, 'event rejected'); END")
-    with pytest.raises(sqlite3.IntegrityError):
-        setup_client.patch(f"/api/items/{item['id']}", json={"expected_version": 1, "compartment_id": second["id"]})
+    failed = setup_client.patch(f"/api/items/{item['id']}", json={"expected_version": 1, "compartment_id": second["id"]})
+    assert failed.status_code == 500 and failed.json()["error"]["code"] == "internal_error"
     unchanged = setup_client.get(f"/api/items/{item['id']}").json()["item"]
     assert unchanged["compartment_id"] == first["id"]
     assert unchanged["version"] == 1

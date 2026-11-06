@@ -222,8 +222,8 @@ def test_failed_container_update_does_not_advance_room_version(setup_client):
     # Even a failure after updating container fields must roll back its parent's version.
     with db(setup_client) as connection:
         connection.execute("CREATE TRIGGER fail_parent BEFORE UPDATE OF version ON rooms BEGIN SELECT RAISE(ABORT, 'parent failed'); END")
-    with pytest.raises(sqlite3.IntegrityError):
-        setup_client.patch(f"/api/containers/{container['id']}", json={"expected_version": container["version"], "name": "should rollback"})
+    failed = setup_client.patch(f"/api/containers/{container['id']}", json={"expected_version": container["version"], "name": "should rollback"})
+    assert failed.status_code == 500 and failed.json()["error"]["code"] == "internal_error"
     assert current_room(setup_client, room["id"]) == before
     assert setup_client.get(f"/api/containers/{container['id']}").json()["container"] == container
 

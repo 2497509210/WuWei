@@ -127,7 +127,7 @@ export function QuickRegisterDialog({ me, initialCompartmentId = "", onClose, on
   const speed = transfer && uploadSeconds > 0 && transfer.loaded > 0 ? transferSize(transfer.loaded / uploadSeconds) : null;
   const percentage = transfer?.total ? Math.min(100, Math.floor((transfer.loaded / transfer.total) * 100)) : undefined;
 
-  return <Modal title="拍照登记" onClose={onClose} busy={busy}>
+  return <Modal title="拍照登记" onClose={onClose} busy={busy} dirty={Boolean(name || photo || preparing || (location && location !== initialCompartmentId))}>
     <form className="inventory-form quick-register-form" noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
       <p className="inventory-muted">拍一张实物或所在抽屉的照片，再填写名称和位置。也可以暂不添加照片。</p>
       <fieldset disabled={busy}>

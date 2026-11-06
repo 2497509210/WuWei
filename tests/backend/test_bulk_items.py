@@ -243,8 +243,8 @@ def test_event_or_operation_failure_rolls_back_every_item(setup_client, failure)
             connection.execute(f"CREATE TRIGGER fail_bulk BEFORE INSERT ON item_events WHEN NEW.event_type='move' AND NEW.item_id='{ordered[1]['id']}' BEGIN SELECT RAISE(ABORT, 'failed second item'); END")
         else:
             connection.execute("CREATE TRIGGER fail_bulk BEFORE INSERT ON item_bulk_operations BEGIN SELECT RAISE(ABORT, 'operation failed'); END")
-    with pytest.raises(sqlite3.IntegrityError):
-        bulk(setup_client, items, compartment_id=container["compartments"][1]["id"])
+    response = bulk(setup_client, items, compartment_id=container["compartments"][1]["id"])
+    assert response.status_code == 500 and response.json()["error"]["code"] == "internal_error"
     assert get_items(setup_client, items) == items
     assert operation_count(setup_client) == 0
     with db(setup_client) as connection:

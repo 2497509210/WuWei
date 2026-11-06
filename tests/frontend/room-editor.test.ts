@@ -60,7 +60,7 @@ describe("room editor", () => {
     const dialog = await openEditor(); failure = "offline";
     fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "客房" } });
     fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
-    await dialog.findByText("连接失败，请重试");
+    await dialog.findByText("连接失败，请重试", { exact: false });
     expect((dialog.getByLabelText("房间名称") as HTMLInputElement).value).toBe("客房");
     expect(room.name).toBe("主卧");
     fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
@@ -71,7 +71,7 @@ describe("room editor", () => {
     const dialog = await openEditor(); failure = "conflict";
     fireEvent.change(dialog.getByLabelText("房间名称"), { target: { value: "我的旧草稿" } });
     fireEvent.click(dialog.getByRole("button", { name: "保存房间" }));
-    await dialog.findByText("房间已被更新");
+    await dialog.findByText("房间已被更新", { exact: false });
     expect((dialog.getByLabelText("房间名称") as HTMLInputElement).value).toBe("我的旧草稿");
     expect((dialog.getByRole("button", { name: "保存房间" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(dialog.getByRole("button", { name: "加载最新房间" }));

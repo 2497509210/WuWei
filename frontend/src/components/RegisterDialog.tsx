@@ -36,7 +36,7 @@ export function RegisterDialog({ me, initialCompartmentId = "", onClose, onSaved
     } finally { if (owner === generation.current) { saving.current = false; setBusy(false); } }
   }
 
-  return <Modal title="一起记在这个位置" onClose={onClose} busy={busy}><form className="inventory-form" onSubmit={event => { event.preventDefault(); void save(); }}>
+  return <Modal title="一起记在这个位置" onClose={onClose} busy={busy} dirty={Boolean(names || (location && location !== initialCompartmentId))}><form className="inventory-form" onSubmit={event => { event.preventDefault(); void save(); }}>
     <p className="inventory-muted">选一次位置，登记多件物品；也可以先记成一组。</p>
     <fieldset disabled={busy}>
       <LocationPicker value={location} onChange={setLocation} initialCompartmentId={initialCompartmentId} onInvalidInitial={id => forgetLocation(me, id)} />

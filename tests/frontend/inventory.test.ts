@@ -33,7 +33,7 @@ describe("inventory workflows", () => {
     handler = (url) => url.pathname.endsWith("/items/passport") && ++reads === 1
       ? response({error:{message:"读取失败"}},503) : normal(url);
     show(); fireEvent.click(await screen.findByRole("button", {name:/查看护照/}));
-    await screen.findByText("读取失败");
+    await screen.findByText("读取失败", { exact: false });
     expect((screen.getByRole("button", {name:"就在这里"}) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", {name:"重新加载记录"}));
     await waitFor(() => expect((screen.getByRole("button", {name:"就在这里"}) as HTMLButtonElement).disabled).toBe(false));
@@ -49,12 +49,12 @@ describe("inventory workflows", () => {
     render(createElement(LocationPicker,{value:"",onChange:()=>{}}));
     await within(screen.getByRole("combobox",{name:"房间",exact:true})).findByRole("option",{name:"主卧"});
     fireEvent.change(screen.getByLabelText("房间"),{target:{value:"r"}});
-    await screen.findByText("房间读取失败");
+    await screen.findByText("房间读取失败", { exact: false });
     fireEvent.click(screen.getByRole("button",{name:"重试"}));
-    await screen.findByText("房间读取失败");
+    await screen.findByText("房间读取失败", { exact: false });
     finishBootstrap?.(normal(new URL("http://localhost/api/bootstrap")));
     await new Promise(resolve=>setTimeout(resolve,0));
-    expect(screen.getByText("房间读取失败")).toBeTruthy();
+    expect(screen.getByText("房间读取失败", { exact: false })).toBeTruthy();
   });
   // A missing location breadcrumb or action would leave users unable to identify the correct shelf.
   it("shows an item's location and confirmation actions after selecting a search result", async () => {
@@ -102,7 +102,7 @@ describe("inventory workflows", () => {
     fireEvent.click(await screen.findByRole("button", {name:"顶层"}));
     fireEvent.change(screen.getByLabelText("物品名称，每行一件或一组"), {target:{value:"护照\n备用线材一组"}});
     fireEvent.click(screen.getByRole("button", {name:"保存登记"}));
-    await screen.findByText("连接中断，请重试");
+    await screen.findByText("连接中断，请重试", { exact: false });
     expect((screen.getByLabelText("物品名称，每行一件或一组") as HTMLTextAreaElement).value).toBe("护照\n备用线材一组");
     fireEvent.click(screen.getByRole("button", {name:"保存登记"}));
     await waitFor(() => expect(screen.queryByLabelText("物品名称，每行一件或一组")).toBeNull());
@@ -122,7 +122,7 @@ describe("inventory workflows", () => {
     };
     show(); fireEvent.click(await screen.findByRole("button", {name:/查看护照/}));
     fireEvent.click(await screen.findByRole("button", {name:"就在这里"}));
-    expect(await screen.findByText("位置已被更新，请核对后重试")).toBeTruthy();
+    expect(await screen.findByText("位置已被更新，请核对后重试", { exact: false })).toBeTruthy();
     expect(screen.getByText("书房 / 抽屉柜 / 下层")).toBeTruthy();
   });
 });

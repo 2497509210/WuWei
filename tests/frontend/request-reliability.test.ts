@@ -60,7 +60,7 @@ describe("bounded API requests", () => {
     await expect(request("/items/i", { method: "DELETE" })).resolves.toBeUndefined();
     const current = { id: "r", floor_id: "f", version: 3 };
     vi.stubGlobal("fetch", async () => json({ error: { code: "room_version_conflict", message: "请刷新", current_room: current } }, 409));
-    await expect(request("/rooms/r", { method: "PATCH", body: '{}' })).rejects.toMatchObject({ status: 409, code: "room_version_conflict", message: "请刷新", currentRoom: current });
+    await expect(request("/rooms/r", { method: "PATCH", body: '{}' })).rejects.toMatchObject({ status: 409, code: "room_version_conflict", message: expect.stringContaining("请刷新"), currentRoom: current });
     expect(vi.getTimerCount()).toBe(0);
   });
 

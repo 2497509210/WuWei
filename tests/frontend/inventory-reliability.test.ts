@@ -34,7 +34,7 @@ describe("inventory query trust",()=>{
     handler=url=>url.searchParams.get("q")==="钥匙"?json({error:{message:"搜索暂时不可用"}},503):normal(url);
     render(createElement(InventoryPage,props()));await ready();
     fireEvent.change(screen.getByRole("searchbox"),{target:{value:"钥匙"}});
-    await screen.findByText("搜索暂时不可用");
+    await screen.findByText("搜索暂时不可用", { exact: false });
     expect(screen.queryByText("当前筛选未能加载，以下为上次结果")).not.toBeNull();
     expect(screen.queryByText("1 条记录")).toBeNull();
     expect(screen.queryByRole("heading",{name:"搜索结果"})).toBeNull();
@@ -52,7 +52,7 @@ describe("inventory query trust",()=>{
     fireEvent.click(screen.getByRole("button",{name:dialogName}));await screen.findByRole("dialog",{name:dialogName});
     moreActions();
     fireEvent.click(screen.getByRole("button",{name:"刷新清单"}));
-    await screen.findByText("刷新失败");
+    await screen.findByText("刷新失败", { exact: false });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByText("已选 0 条")).toBeTruthy();
     expectUnavailable();
@@ -64,7 +64,7 @@ describe("inventory query trust",()=>{
       ?++searchAttempts===1?json({error:{message:"请重试查询"}},503):json({items:[second]})
       :normal(url);
     render(createElement(InventoryPage,props()));await ready();
-    fireEvent.change(screen.getByRole("searchbox"),{target:{value:"相机"}});await screen.findByText("请重试查询");
+    fireEvent.change(screen.getByRole("searchbox"),{target:{value:"相机"}});await screen.findByText("请重试查询", { exact: false });
     expectUnavailable();
     fireEvent.click(screen.getByRole("button",{name:"重新加载"}));
     await waitFor(()=>expect((screen.getByRole("button",{name:"导出清单"}) as HTMLButtonElement).disabled).toBe(false));
@@ -81,9 +81,9 @@ describe("inventory query trust",()=>{
       :url.searchParams.get("q")==="新查询"?json({error:{message:"当前查询失败"}},503):normal(url);
     render(createElement(InventoryPage,props()));await ready();
     fireEvent.change(screen.getByRole("searchbox"),{target:{value:"旧查询"}});await waitFor(()=>expect(finishOld).toBeTypeOf("function"));
-    fireEvent.change(screen.getByRole("searchbox"),{target:{value:"新查询"}});await screen.findByText("当前查询失败");
+    fireEvent.change(screen.getByRole("searchbox"),{target:{value:"新查询"}});await screen.findByText("当前查询失败", { exact: false });
     await act(async()=>{finishOld?.(json({items:[second]}));});
-    expect(screen.getByText("当前查询失败")).toBeTruthy();
+    expect(screen.getByText("当前查询失败", { exact: false })).toBeTruthy();
     expect(screen.queryByRole("button",{name:"查看相机"})).toBeNull();
     expectUnavailable();
   });
@@ -110,7 +110,7 @@ describe("inventory query trust",()=>{
   it("keeps old active rows unselectable when the archived filter fails",async()=>{
     handler=url=>url.searchParams.get("status")==="archived"?json({error:{message:"归档读取失败"}},503):normal(url);
     render(createElement(InventoryPage,props()));await ready();
-    fireEvent.click(screen.getByRole("button",{name:"已归档"}));await screen.findByText("归档读取失败");
+    fireEvent.click(screen.getByRole("button",{name:"已归档"}));await screen.findByText("归档读取失败", { exact: false });
     expect(screen.queryByText("当前筛选未能加载，以下为上次结果")).not.toBeNull();
     expect((screen.getByRole("checkbox",{name:"选择护照"}) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole("button",{name:"批量恢复"}) as HTMLButtonElement).disabled).toBe(true);

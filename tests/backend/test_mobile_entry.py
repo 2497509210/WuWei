@@ -154,8 +154,8 @@ def test_quick_transaction_failure_cleans_item_history_and_new_photo(setup_clien
             connection.execute("CREATE TRIGGER reject_quick BEFORE INSERT ON item_quick_operations BEGIN SELECT RAISE(ABORT, 'operation failed'); END")
         else:
             connection.execute(f"CREATE TRIGGER reject_quick BEFORE INSERT ON item_events WHEN NEW.event_type='{stage}' BEGIN SELECT RAISE(ABORT, 'history failed'); END")
-    with pytest.raises(sqlite3.IntegrityError):
-        quick(setup_client, compartment["id"], image=png())
+    response = quick(setup_client, compartment["id"], image=png())
+    assert response.status_code == 500 and response.json()["error"]["code"] == "internal_error"
     assert counts(setup_client) == (0, 0, 0)
     assert not list((setup_client.app.state.settings.data_dir / "media").glob("*.jpg"))
 
