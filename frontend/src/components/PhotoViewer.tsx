@@ -10,7 +10,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /** An independent top-layer dialog: closing a photo never discards its parent form. */
-export function PhotoViewer({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
+export function PhotoViewer({ src, name, onClose, returnFocus }: { src: string; name: string; onClose: () => void; returnFocus?: HTMLElement | null }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -24,7 +24,7 @@ export function PhotoViewer({ src, name, onClose }: { src: string; name: string;
 
   useEffect(() => {
     const node = dialog.current;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = returnFocus ?? document.activeElement as HTMLElement | null;
     if (node?.showModal) node.showModal(); else node?.setAttribute("open", "");
     closeButton.current?.focus();
     return () => { node?.close?.(); if (previous?.isConnected) previous.focus(); };

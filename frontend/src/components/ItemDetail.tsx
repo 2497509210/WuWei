@@ -6,6 +6,7 @@ import { confirmDiscard, Modal } from "./Modal";
 import { ItemHistory } from "./ItemHistory";
 import { ItemPhotoEditor } from "./ItemPhotoEditor";
 import { PhotoViewer } from "./PhotoViewer";
+import { ItemLink } from "./ItemLink";
 import { changedItemFields, draftFieldLabels, itemDraft, mergeItemDraft, type FieldConflict } from "../lib/itemDraft";
 import "../styles/item-review.css";
 
@@ -31,6 +32,7 @@ export function ItemDetail({ initial, onClose, onUpdated, onLocate, refreshPendi
   const [photoDirty, setPhotoDirty] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const photoTrigger = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const [draft, setDraft] = useState(() => itemDraft(initial));
   const editBaseline = useRef(draft);
@@ -91,7 +93,7 @@ export function ItemDetail({ initial, onClose, onUpdated, onLocate, refreshPendi
   const archived = Boolean(item.archived_at);
   return <><Modal title={item.name} onClose={onClose} busy={busy || photoBusy} dirty={formDirty || photoDirty}>
     <div className="item-detail">
-      {item.photo_url ? <button type="button" className="item-photo-open" aria-label="查看照片" onClick={() => setPhotoOpen(true)}><img className="item-detail-photo" src={item.photo_url} alt={item.name} /><span>点击放大</span></button> : <div className="item-photo-empty">{archived ? "没有保存照片" : "添加实物或所在抽屉的照片，方便辨认"}</div>}
+      {item.photo_url ? <button ref={photoTrigger} type="button" className="item-photo-open" aria-label="查看照片" onClick={() => setPhotoOpen(true)}><img className="item-detail-photo" src={item.photo_url} alt={item.name} /><span>点击放大</span></button> : <div className="item-photo-empty">{archived ? "没有保存照片" : "添加实物或所在抽屉的照片，方便辨认"}</div>}
       <div className="item-location"><span>{archived ? "归档前的位置" : "记录的位置"}</span><strong>{item.location_path.length ? item.location_path.join(" / ") : "暂未分配位置"}</strong></div>
       {archived ? <div className="item-archive-note"><strong>已归档 · {confirmedDate(item.archived_at)}</strong><p>{item.archive_reason || "未填写归档原因"}</p><p>资料、照片和历史已保留。恢复时请选择现在存放的隔层。</p></div>
         : <p className={item.location_status === "missing" ? "missing-note" : "inventory-muted"}>{item.location_status === "missing" ? "这里没找到 · 位置需要更新" : "已确认位置"} · {confirmedDate(item.last_confirmed_at)}</p>}
@@ -102,6 +104,7 @@ export function ItemDetail({ initial, onClose, onUpdated, onLocate, refreshPendi
       {error && <div className="inventory-error" role="alert">{error}</div>}
       {!verified && !loading && <button onClick={() => setReload(value=>value+1)}>重新加载记录</button>}
       {message && <p role="status" className="inventory-success">{message}</p>}
+      <ItemLink key={initial.id} itemId={initial.id} disabled={disabled || item.id !== initial.id} />
       {mode === "view" && !archived && <>
         <div className="inventory-actions">
           <button className="inventory-primary" disabled={disabled || photoDirty || !item.compartment_id} onClick={() => void mutate(() => confirmItem(item.id, item.version), "已确认物品就在这里")}>就在这里</button>
@@ -158,5 +161,5 @@ export function ItemDetail({ initial, onClose, onUpdated, onLocate, refreshPendi
       <ItemHistory key={`${item.id}:${item.version}:${historyRevision}`} itemId={item.id} disabled={disabled || photoDirty || archived || mode !== "view"}
         onUndo={eventId => void mutate(() => undoItemMove(item.id, eventId, item.version), "已撤销这次移动")} />
     </div>
-  </Modal>{photoOpen && item.photo_url && <PhotoViewer key={item.photo_url} src={item.photo_url} name={item.name} onClose={() => setPhotoOpen(false)} />}</>;
+  </Modal>{photoOpen && item.photo_url && <PhotoViewer key={item.photo_url} src={item.photo_url} name={item.name} returnFocus={photoTrigger.current} onClose={() => setPhotoOpen(false)} />}</>;
 }

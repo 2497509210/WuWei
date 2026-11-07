@@ -1,0 +1,9 @@
+.item-link{padding:16px 0;margin:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.item-link-actions{display:flex;gap:8px;flex-wrap:wrap}
+.inventory-dialog .item-link-actions button{font-size:13px}
+.inventory-dialog .item-link-actions button+button{background:transparent;color:var(--ink-soft)}
+.item-link-options{margin-top:12px;min-width:0}
+.item-link-options label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ink-soft);min-width:0}
+.item-link-options input,.item-link-options select{width:100%;min-width:0;border:1px solid #d8cfbf;border-radius:10px;background:#fffdf9;color:var(--ink);padding:11px 12px;font:inherit;font-size:16px}
+.item-link-options input:disabled{opacity:.5}
+.item-link>p:last-child{margin-bottom:0}

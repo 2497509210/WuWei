@@ -1,0 +1,7 @@
+.item-page { min-height: 100dvh; background: var(--paper); color: var(--ink); }
+.item-page-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px clamp(20px, 5vw, 64px); border-bottom: 1px solid var(--line); }
+.item-page button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; }
+.item-page-main { max-width: 760px; margin: 0 auto; padding: 36px 20px 60px; }
+.item-page-main h1 { font-size: clamp(25px, 5vw, 36px); font-weight: 500; }
+.item-page-message { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .item-page-header { padding: 16px; } .item-page-main { padding: 20px 16px 40px; } }

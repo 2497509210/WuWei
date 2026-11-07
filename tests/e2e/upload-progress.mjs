@@ -1,10 +1,9 @@
-import { pythonExecutable, chromeLaunchOptions } from "./env.mjs";
+import { availableTestPort, pythonExecutable, chromeLaunchOptions } from "./env.mjs";
 import { chromium } from "../../frontend/node_modules/playwright/index.mjs";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import net from "node:net";
 import http from "node:http";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
@@ -12,8 +11,7 @@ import { setTimeout as delay } from "node:timers/promises";
 const testRoot=fileURLToPath(new URL("../",import.meta.url)),project=path.resolve(testRoot,"..");
 const runDir=await mkdtemp(path.join(testRoot,".e2e-upload-progress-"));
 const shots=path.join(testRoot,"e2e/shots/upload-progress");await mkdir(shots,{recursive:true});
-const listener=net.createServer();await new Promise(resolve=>listener.listen(0,"127.0.0.1",resolve));
-const backendPort=listener.address().port;await new Promise(resolve=>listener.close(resolve));
+const backendPort = await availableTestPort();
 let receivedBytes=0;
 const proxy=http.createServer((request,response)=>{
   const isUpload=request.method==="POST"&&request.url.endsWith("/api/items/quick");

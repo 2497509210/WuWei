@@ -61,10 +61,10 @@ jobs:
       - name: Build production assets
         working-directory: frontend
         run: npm run build
-      - name: Install Chromium for browser regression
+      - name: Install Chromium and WebKit for browser regression
         if: runner.os == 'Linux'
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
       - name: Verify mobile filtering and pagination in Chromium
         if: runner.os == 'Linux'
         env:
@@ -89,6 +89,17 @@ jobs:
           node tests/e2e/form-guards.mjs
           node tests/e2e/field-photo.mjs
           node tests/e2e/daily-efficiency.mjs
+      - name: Verify item links and mobile flows in both engines
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          WUWEI_TEST_PYTHON: python
+          WUWEI_E2E_BASE_PATH: /wuwei
+        run: |
+          for engine in chromium webkit; do
+            WUWEI_TEST_BROWSER="$engine" node tests/e2e/item-links.mjs
+            WUWEI_TEST_BROWSER="$engine" node tests/e2e/mobile-compat.mjs
+          done
       - name: Retain browser failure evidence
         if: failure() && runner.os == 'Linux'
         uses: actions/upload-artifact@v4

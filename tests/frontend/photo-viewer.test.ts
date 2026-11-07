@@ -12,6 +12,18 @@ beforeEach(() => {
   vi.stubGlobal("fetch", async (input: string) => new Response(JSON.stringify(new URL(String(input), "http://localhost").pathname.endsWith("/events") ? { events: [], has_more: false } : { item: current }), { headers: { "Content-Type": "application/json" } }));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+// Safari pointer activation does not necessarily focus the clicked button.
+it("restores the explicit photo trigger even when pointer activation did not focus it", async () => {
+  render(createElement(ItemDetail, { initial: item, onClose() {}, onUpdated() {}, onLocate() {} }));
+  await screen.findByRole("button", { name: "编辑资料" });
+  fireEvent.click(screen.getByRole("button", { name: "编辑资料" }));
+  const notes = screen.getByLabelText("备注"); notes.focus();
+  const trigger = screen.getByRole("button", { name: "查看照片" });
+  fireEvent.click(trigger);
+  fireEvent.click(await screen.findByRole("button", { name: "关闭照片" }));
+  expect(document.activeElement).toBe(trigger);
+});
 async function detail() {
   function Shell() { const [open, setOpen] = useState(true); return open ? createElement(ItemDetail, { initial: current, onClose: () => setOpen(false), onUpdated() {}, onLocate() {} }) : null; }
   render(createElement(Shell));

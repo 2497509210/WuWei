@@ -33,3 +33,16 @@ def test_mobile_manifest_and_icons_are_served_as_files_not_spa_html(tmp_path, pr
 
 def test_missing_manifest_returns_404_instead_of_installable_html(client):
     assert client.get('/manifest.webmanifest').status_code == 404
+
+
+@pytest.mark.parametrize('prefix', ['', '/wuwei'])
+def test_item_deep_link_serves_shell_without_exposing_item_data(tmp_path, prefix):
+    static = tmp_path / 'dist'
+    static.mkdir()
+    shell = '<div id="root"></div>'
+    (static / 'index.html').write_text(shell, encoding='utf8')
+    with TestClient(create_app(Settings(data_dir=tmp_path/'data', static_dir=static, base_path=prefix))) as client:
+        page = client.get(prefix + '/items/private-item')
+        assert page.status_code == 200 and page.text == shell
+        response = client.get(prefix + '/api/items/private-item')
+        assert response.status_code == 401 and response.json()['error']['code'] == 'not_authenticated'

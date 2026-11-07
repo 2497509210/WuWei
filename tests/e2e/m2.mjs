@@ -1,10 +1,9 @@
-import { pythonExecutable, chromeLaunchOptions } from "./env.mjs";
+import { availableTestPort, pythonExecutable, chromeLaunchOptions } from "./env.mjs";
 import { chromium } from "../../frontend/node_modules/playwright/index.mjs";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import net from "node:net";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -13,10 +12,7 @@ const project = path.resolve(testRoot, "..");
 const runDir = await mkdtemp(path.join(testRoot, ".e2e-m2-"));
 const shots = path.join(testRoot, "e2e/shots/m2");
 await mkdir(shots, {recursive:true});
-const listener = net.createServer();
-await new Promise(resolve => listener.listen(0,"127.0.0.1",resolve));
-const port = listener.address().port;
-await new Promise(resolve => listener.close(resolve));
+const port = await availableTestPort();
 const origin = `http://127.0.0.1:${port}`;
 const basePath = process.env.WUWEI_E2E_BASE_PATH || "";
 const base = origin + basePath;
