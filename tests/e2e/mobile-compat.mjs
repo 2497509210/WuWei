@@ -81,6 +81,9 @@ try {
     await page.getByRole("button", { name: "下一页", exact: true }).click();
     await range("第 41–45 条，共 45 条");
     await page.reload(); await range("第 41–45 条，共 45 条");
+    // The list and room options are independent reads. A completed page does
+    // not mean the select's asynchronous option has already been rendered.
+    await page.waitForFunction(id => document.querySelector('select[aria-label="筛选房间"]')?.value === id, room.id);
     check("刷新恢复搜索房间状态和分页", await page.getByRole("searchbox").inputValue() === "手机核对" && await page.getByRole("combobox", { name: "筛选房间" }).inputValue() === room.id && await page.getByRole("button", { name: "待找回", exact: true }).getAttribute("aria-pressed") === "true");
     await page.getByRole("button", { name: "更多", exact: true }).click();
     await page.getByRole("button", { name: "导出清单", exact: true }).click();
