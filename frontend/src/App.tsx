@@ -138,8 +138,8 @@ function AppContent() {
 
   function openSettings() { navigate("/settings", { state: { returnTo: location.pathname + location.search, findOwner: identity } }); }
 
-  function changeFindView(view: FindView, replace = false) {
-    navigate({ pathname: "/find", search: findSearch(view, location.search) }, { replace, state: { findOwner: identity } });
+  function changeFindView(view: FindView, replace = false, immediate = false) {
+    navigate({ pathname: "/find", search: findSearch(view, location.search) }, { replace, flushSync: immediate, state: { findOwner: identity } });
   }
 
   useEffect(() => {

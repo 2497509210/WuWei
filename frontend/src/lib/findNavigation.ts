@@ -1,7 +1,7 @@
 import type { MeResponse } from "../api/client";
 
 export type FindView = { query: string; status: "active" | "missing" | "archived"; roomId: string; filter: string; page: number };
-export type FindNavigation = { view: FindView; entry: string; onChange: (view: FindView, replace?: boolean) => void };
+export type FindNavigation = { view: FindView; entry: string; onChange: (view: FindView, replace?: boolean, immediate?: boolean) => void };
 const storageKey = "wuwei.find-navigation.v1";
 type NavigationMemory = { owner: string; last: string; positions: Array<{ path: string; y: number }> };
 export const findOwner = (me: MeResponse) => `${me.household.id}:${me.user.id}`;

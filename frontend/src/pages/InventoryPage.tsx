@@ -29,11 +29,21 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
   const [localView, setLocalView] = useState<FindView>({ query: "", filter: initialCompartment, status: "active", roomId: "", page: 1 });
   const view = navigation?.view ?? localView;
   const { query, filter, status, roomId, page } = view;
-  function updateView(change: Partial<FindView>, replace = false) {
-    const next = { ...view, ...change };
-    if (navigation) navigation.onChange(next, replace);
-    else setLocalView(next);
+  function updateView(change: Partial<FindView>, replace = false, immediate = false) {
+    const normalizeRoomSelection = (next: FindView): FindView => {
+      const choice = chosenRoomForShelf.current;
+      const verifiedRoom = shelfLocation.id === next.filter && !shelfLocation.loading && !shelfLocation.error && shelfLocation.roomId;
+      return next.status !== "archived" && next.filter && next.roomId && choice?.shelf === next.filter
+        && choice.room === next.roomId && verifiedRoom && next.roomId !== verifiedRoom
+        ? { ...next, filter: "", page: 1 } : next;
+    };
+    const next = normalizeRoomSelection({ ...view, ...change });
+    if (navigation) navigation.onChange(next, replace, immediate);
+    else setLocalView(current => normalizeRoomSelection({ ...current, ...change }));
   }
+  // A user can change another control before a router transition paints. Commit
+  // event-driven criteria together; effects and async page corrections stay deferred.
+  function changeView(change: Partial<FindView>, replace = false) { updateView(change, replace, true); }
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomError, setRoomError] = useState("");
   const [roomRevision, setRoomRevision] = useState(0);
@@ -99,11 +109,12 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
     return () => controller.abort();
   }, [filter, shelfRevision]);
   useEffect(() => {
+    if (!filter || status === "archived") { chosenRoomForShelf.current = null; return; }
     const choice = chosenRoomForShelf.current;
-    if (status === "archived" || !filter || !choice || choice.shelf !== filter || choice.room !== roomId
+    if (!choice || choice.shelf !== filter || choice.room !== roomId
       || !roomId || shelfLocation.id !== filter || !shelfLocation.roomId || shelfLocation.error || shelfLocation.loading) return;
     if (roomId !== shelfLocation.roomId) {
-      chosenRoomForShelf.current = null; updateView({ filter: "", page: 1 }, true); if (!navigation) clearCompartment.current?.();
+      updateView({ filter: "", page: 1 }, true); if (!navigation) clearCompartment.current?.();
     }
   }, [filter, roomId, shelfLocation, status]);
   useEffect(() => {
@@ -202,16 +213,18 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
       setExportDialog({ filter: { status: apiStatus, q: query.trim(), compartmentId: status !== "archived" ? filter : "", ...(status !== "archived" && roomId ? { roomId, roomName: rooms.find(room => room.id === roomId)?.name } : {}), ...(status === "missing" ? { locationStatus: "missing" as const } : {}) }, selectedIds: selection.map(item => item.id) });
     }
   }
-  function changeStatus(value: typeof status) { updateView({ status: value, page: 1, ...(value === "archived" ? { roomId: "" } : {}) }); setNotice(""); }
+  function changeStatus(value: typeof status) { changeView({ status: value, page: 1, ...(value === "archived" ? { roomId: "" } : {}) }); setNotice(""); }
   function changeRoom(value: string) {
     chosenRoomForShelf.current = filter && value ? { shelf: filter, room: value } : null;
-    updateView({ roomId: value, page: 1 });
+    if (!navigation && filter && value && shelfLocation.id === filter && !shelfLocation.loading && !shelfLocation.error
+      && shelfLocation.roomId && shelfLocation.roomId !== value) clearCompartment.current?.();
+    changeView({ roomId: value, page: 1 });
   }
   function changePage(value: number) {
     if (!trusted) return;
     if (navigation) scrollPage("/find" + findSearch({ ...view, page: value }));
     else listHeading.current?.scrollIntoView?.({ block: "start" });
-    updateView({ page: value }); setNotice("");
+    changeView({ page: value }); setNotice("");
   }
   const rangeStart = items.length ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
   const rangeEnd = items.length ? rangeStart + items.length - 1 : 0;
@@ -219,7 +232,7 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
     <header className="inventory-header"><Brand compact /><nav aria-label="主导航"><button aria-current="page">家庭找物</button><button onClick={() => onArrange()}>空间</button></nav><span className="inventory-household">{me.household.name}</span>{onSettings && <button className="inventory-logout" aria-label="账号与家庭" onClick={onSettings}>账号</button>}<button className="inventory-logout" onClick={() => void onLogout()}>退出</button></header>
     <main className="inventory-main">
       <section className="inventory-intro inventory-intro-compact"><h1>家庭找物</h1><p>记下位置，下次少找一会儿。</p></section>
-      <div className="inventory-search-row"><label className="inventory-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜索物品" placeholder="找什么？名称、别名或备注" value={query} onChange={event => { updateView({ query: event.target.value, page: 1 }, true); }} /></label>{status !== "archived" && <div className="inventory-entry-actions"><button className="inventory-primary" onClick={() => openRegistration("capture")}>拍照登记</button><button onClick={() => openRegistration("register")}>登记物品</button></div>}</div>
+      <div className="inventory-search-row"><label className="inventory-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="搜索物品" placeholder="找什么？名称、别名或备注" value={query} onChange={event => { changeView({ query: event.target.value, page: 1 }, true); }} /></label>{status !== "archived" && <div className="inventory-entry-actions"><button className="inventory-primary" onClick={() => openRegistration("capture")}>拍照登记</button><button onClick={() => openRegistration("register")}>登记物品</button></div>}</div>
       <div className="inventory-filter-row"><div className="inventory-status-tabs" role="group" aria-label="物品状态">
         <button type="button" aria-pressed={status === "active"} onClick={() => changeStatus("active")}>在用</button>
         <button type="button" aria-pressed={status === "missing"} onClick={() => changeStatus("missing")}>待找回</button>
@@ -248,13 +261,13 @@ function InventoryContent({ me, onLogout, onArrange, onSettings, onClearCompartm
         </div>
       </div>}
       {selectionError && <div className="inventory-error bulk-selection-error" role="alert">{selectionError}</div>}
-      <div className="inventory-list-heading" ref={listHeading}><h2>{!trusted ? (pending ? "正在核验清单" : "上次加载的结果") : query ? "搜索结果" : status === "archived" ? "已归档的物品" : status === "missing" ? "待找回的物品" : filter ? "这个隔层里的物品" : "家里的物品"}</h2><span>{trusted ? `共 ${pagination.total} 条记录` : pending ? "正在查找…" : "当前数量未确认"}</span>{filter && status !== "archived" && <button onClick={() => { updateView({ filter: "", page: 1 }); if (!navigation) onClearCompartment?.(); }}>查看全部</button>}</div>
+      <div className="inventory-list-heading" ref={listHeading}><h2>{!trusted ? (pending ? "正在核验清单" : "上次加载的结果") : query ? "搜索结果" : status === "archived" ? "已归档的物品" : status === "missing" ? "待找回的物品" : filter ? "这个隔层里的物品" : "家里的物品"}</h2><span>{trusted ? `共 ${pagination.total} 条记录` : pending ? "正在查找…" : "当前数量未确认"}</span>{filter && status !== "archived" && <button onClick={() => { changeView({ filter: "", page: 1 }); if (!navigation) onClearCompartment?.(); }}>查看全部</button>}</div>
       {failed && <div className="inventory-error" role="alert">{error}<button onClick={() => setRevision(value => value + 1)}>重新加载</button></div>}
       {failed && <div className="inventory-stale-note" role="status"><strong>{verifiedView ? "当前筛选未能加载，以下为上次结果" : "当前筛选未能加载，尚无已核验的结果"}</strong><p>可打开单件详情重新读取最新资料；清单重新加载成功前，不能勾选、批量处理或导出。</p></div>}
       {notice && <p className="inventory-success" role="status">{notice}</p>}
       {refresh.deferred && <p className="inventory-refresh-notice" role="status">清单可能已有更新，完成当前操作并关闭弹窗或退出批量整理后，会自动核验最新记录。</p>}
       {registered.length > 0 && <RegistrationReceipt key={registered.map(item => item.id).join(":")} items={registered} visibleIds={items.map(item => item.id)} verified={trusted} onView={setSelected} onDismiss={() => setRegistered([])} />}
-      {pending ? <p role="status" className="inventory-loading">正在读取物品…</p> : !items.length ? (failed ? null : <div className="inventory-empty"><span aria-hidden="true">⌂</span><h3>{query ? "还没有找到这件物品" : status === "archived" ? "还没有归档物品" : status === "missing" ? "没有待找回的物品" : "给第一件物品留下位置"}</h3><p>{query ? "换个叫法试试，也可以在资料中补充别名。" : status === "archived" ? "暂时不用的物品可以归档；需要时选择一个位置恢复。" : status === "missing" ? "记录为“这里没找到”的物品会显示在这里。" : "选择一个隔层，一次登记多件；一箱露营工具也可以先记成一组。"}</p>{(query || status === "active") && <button onClick={() => { if (query) { updateView({ query: "", page: 1 }, true); } else openRegistration("register"); }}>{query ? "清除搜索" : "开始登记"}</button>}{status === "active" && <button onClick={() => onArrange()}>布置房间和容器</button>}</div>) :
+      {pending ? <p role="status" className="inventory-loading">正在读取物品…</p> : !items.length ? (failed ? null : <div className="inventory-empty"><span aria-hidden="true">⌂</span><h3>{query ? "还没有找到这件物品" : status === "archived" ? "还没有归档物品" : status === "missing" ? "没有待找回的物品" : "给第一件物品留下位置"}</h3><p>{query ? "换个叫法试试，也可以在资料中补充别名。" : status === "archived" ? "暂时不用的物品可以归档；需要时选择一个位置恢复。" : status === "missing" ? "记录为“这里没找到”的物品会显示在这里。" : "选择一个隔层，一次登记多件；一箱露营工具也可以先记成一组。"}</p>{(query || status === "active") && <button onClick={() => { if (query) { changeView({ query: "", page: 1 }, true); } else openRegistration("register"); }}>{query ? "清除搜索" : "开始登记"}</button>}{status === "active" && <button onClick={() => onArrange()}>布置房间和容器</button>}</div>) :
         <div className="inventory-grid">{items.map(item => <div key={item.id} className={bulkMode ? `inventory-selection-row${selection.some(entry => entry.id === item.id) ? " is-selected" : ""}` : "inventory-item-wrap"}>
           {bulkMode && <label className="bulk-select-box"><input type="checkbox" aria-label={`选择${item.name}`} disabled={!trusted} checked={selection.some(entry => entry.id === item.id)} onChange={() => toggleItem(item)} /><span className="bulk-select-caption">选择{item.name}</span></label>}
           <button className="inventory-item" aria-label={`查看${item.name}`} onClick={() => setSelected(item)}>

@@ -31,6 +31,7 @@ function normal(url: URL, init: RequestInit): Response {
     const filtered = items.filter(row => (!url.searchParams.get("q") || row.name.includes(url.searchParams.get("q")!))
       && Boolean(row.archived_at) === (url.searchParams.get("status") === "archived")
       && (!url.searchParams.get("room_id") || row.room_id === url.searchParams.get("room_id"))
+      && (!url.searchParams.get("compartment_id") || row.compartment_id === url.searchParams.get("compartment_id"))
       && (!url.searchParams.get("location_status") || row.location_status === url.searchParams.get("location_status")));
     const page = Number(url.searchParams.get("page") || 1), size = Number(url.searchParams.get("page_size") || 40);
     return reply({ items: filtered.slice((page - 1) * size, page * size), total: filtered.length, page, page_size: size, has_more: page * size < filtered.length });
@@ -53,6 +54,48 @@ async function back() { await act(async () => { window.history.back(); await new
 async function forward() { await act(async () => { window.history.forward(); await new Promise(resolve => setTimeout(resolve, 30)); }); }
 
 describe("find URLs and history", () => {
+  // Consecutive user events can arrive before a router transition paints its first
+  // location. Each later filter must retain every earlier change, including on reload.
+  it("keeps search, missing status and room when filters change before a transition paints", async () => {
+    await show(); await screen.findByText("第 1–40 条，共 81 条");
+    await screen.findByRole("option", { name: "主卧", exact: true });
+    act(() => {
+      fireEvent.change(screen.getByRole("searchbox"), { target: { value: "物品" } });
+      fireEvent.click(screen.getByRole("button", { name: "待找回", exact: true }));
+      fireEvent.change(screen.getByRole("combobox", { name: "筛选房间" }), { target: { value: "bedroom" } });
+    });
+    await screen.findByText("第 1–40 条，共 81 条");
+    expect(Object.fromEntries(new URLSearchParams(window.location.search))).toEqual({ q: "物品", status: "missing", room: "bedroom" });
+    expect(screen.getByRole("button", { name: "待找回", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    cleanup(); render(createElement(App));
+    await screen.findByText("第 1–40 条，共 81 条");
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("物品");
+    expect(screen.getByRole("button", { name: "待找回", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByRole("combobox", { name: "筛选房间" }) as HTMLSelectElement).value).toBe("bedroom");
+  });
+  // A subsequent search must not restore a shelf removed by the selected room's correction.
+  it("keeps a conflicting shelf cleared when search follows a room change before a transition paints", async () => {
+    const study = { ...bedroom, id: "study", name: "书房" };
+    items = [item, { ...item, id: "study-item", name: "书房物品", room_id: "study", compartment_id: "study-shelf" }];
+    let finishLocation: ((response: Response) => void) | undefined;
+    handler = (url, init) => {
+      if (url.pathname.endsWith("/bootstrap")) return reply({ ...me, floors: [{ id: "floor", name: "默认", level: 1, rooms: [bedroom, study] }] });
+      if (url.pathname.endsWith("/locations/compartments/shelf")) return new Promise(resolve => { finishLocation = resolve; });
+      return normal(url, init);
+    };
+    await show("/find?compartment=shelf");
+    await screen.findByRole("button", { name: "查看物品1", exact: true });
+    await screen.findByRole("option", { name: "书房", exact: true });
+    await act(async () => { finishLocation!(normal(new URL("http://localhost/api/locations/compartments/shelf"), {})); });
+    act(() => {
+      fireEvent.change(screen.getByRole("combobox", { name: "筛选房间" }), { target: { value: "study" } });
+      fireEvent.change(screen.getByRole("searchbox"), { target: { value: "书房" } });
+    });
+    expect(Object.fromEntries(new URLSearchParams(window.location.search))).toEqual({ q: "书房", room: "study" });
+    await screen.findByRole("button", { name: "查看书房物品", exact: true });
+    expect(screen.queryByRole("button", { name: "查看全部", exact: true })).toBeNull();
+    expect((screen.getByRole("combobox", { name: "筛选房间" }) as HTMLSelectElement).value).toBe("study");
+  });
   // Ignoring any deep-link criterion must expose the wrong rows, tab, or count here.
   it("opens a shared missing-room search on its requested page", async () => {
     await show("/find?q=物品&status=missing&room=bedroom&page=2");
